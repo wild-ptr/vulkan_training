@@ -145,10 +145,10 @@ void DestroyDebugUtilsMessengerEXT(
     }
 }
 
-void setupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT& debugMessenger)
+VkDebugUtilsMessengerEXT setupDebugMessenger(VkInstance instance)
 {
 	if (!enableValidationLayers)
-		return;
+		return VkDebugUtilsMessengerEXT{};
 
 	const auto createInfo = []()
 	{
@@ -171,11 +171,13 @@ void setupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT& debugMes
 		return createInfo;
 	}();
 
+	VkDebugUtilsMessengerEXT debugMessenger;
+
 	if(CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
 		throw std::runtime_error("failed to set up debug messenger");
 
+	return debugMessenger;
 }
-
 
 } // anonymous namespace
 
@@ -201,7 +203,7 @@ void VulkanApplication::initWindow()
 void VulkanApplication::initVulkan()
 {
 	vkInstance = createInstance();
-	setupDebugMessenger(vkInstance, debugMessenger);
+	debugMessenger = setupDebugMessenger(vkInstance);
 }
 
 void VulkanApplication::mainLoop()
