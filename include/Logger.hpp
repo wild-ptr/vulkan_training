@@ -8,6 +8,8 @@
 #define dbgC entitysystem::Logger{__PRETTY_FUNCTION__, entitysystem::Logger::ESeverity::CRITICAL}
 #define dbgValidLayer entitysystem::Logger{__FUNCTION__, entitysystem::Logger::ESeverity::INFO}
 
+#define NEWL "\n"
+
 // blocking (for now) thread-safe logger.
 namespace entitysystem
 {
@@ -34,7 +36,14 @@ Logger& operator<<(T&& msg)
 #else
     {
         std::lock_guard<std::mutex> lock(io_mutex);
-        std::cout << "[" << func << "]" << " " << translateSeverity() << msg << std::endl;
+        if (not function_info_already_displayed)
+        {
+            std::cout << "[" << func << "]" << " " << translateSeverity() << " ";
+            function_info_already_displayed = true;
+        }
+
+        std::cout << msg << " ";
+
         return *this;
     }
 #endif
@@ -46,6 +55,7 @@ private:
     const char * func;
     ESeverity severity;
     static std::mutex io_mutex;
+    bool function_info_already_displayed{false};
 };
 
 } // namespace entitysystem

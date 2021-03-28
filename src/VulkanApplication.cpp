@@ -2,8 +2,10 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 #include <vector>
+#include <set>
 #include <cstring>
 #include <iostream>
+#include <optional>
 
 #include "VulkanApplication.hpp"
 #include "Logger.hpp"
@@ -26,7 +28,7 @@ std::vector<const char*> getRequiredExtensions(bool enableValidationLayers)
 	std::vector<const char*> extensions{glfwExtensions, glfwExtensions + glfwExtensionsCount};
 
 	if (enableValidationLayers)
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); // this macro expands to string.
 
 	return extensions;
 }
@@ -36,17 +38,18 @@ bool checkValidationLayerSupport(const std::vector<const char*>& validationLayer
 	uint32_t layerCount;
 	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
-	std::vector<VkLayerProperties> availableLayers(layerCount);
+	std::vector<VkLayerProperties> availableLayers{layerCount};
 	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-	for (const auto& layer : validationLayersRequested)
+	for (const auto& layerProperties : availableLayers)
 	{
-		for (const auto& layerProperties : availableLayers)
+	    for (const auto& layer : validationLayersRequested)
 		{
 			if(strcmp(layer, layerProperties.layerName) == 0)
-				return true;
+				return true; // right now this only checks one layer, and not a vector.
 		}
 	}
+
 	return false;
 }
 
@@ -110,7 +113,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugLayerCallback(
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* pUserData) {
 
-    dbgValidLayer << pCallbackData->pMessage;
+    dbgValidLayer << pCallbackData->pMessage << NEWL;
 
     return VK_FALSE;
 }
@@ -122,7 +125,10 @@ VkResult CreateDebugUtilsMessengerEXT(
 		const VkAllocationCallbacks* pAllocator,
 		VkDebugUtilsMessengerEXT* pDebugMessenger)
 {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(
+                                                        instance,
+                                                        "vkCreateDebugUtilsMessengerEXT");
+
     if (func != nullptr)
 	{
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
@@ -138,7 +144,10 @@ void DestroyDebugUtilsMessengerEXT(
 		VkDebugUtilsMessengerEXT debugMessenger,
 		const VkAllocationCallbacks* pAllocator)
 {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(
+                                                        instance,
+                                                        "vkDestroyDebugUtilsMessengerEXT");
+
     if (func != nullptr)
 	{
         func(instance, debugMessenger, pAllocator);
@@ -157,7 +166,7 @@ VkDebugUtilsMessengerEXT setupDebugMessenger(VkInstance instance)
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 
 		createInfo.messageSeverity =
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+		    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 
@@ -179,6 +188,128 @@ VkDebugUtilsMessengerEXT setupDebugMessenger(VkInstance instance)
 	return debugMessenger;
 }
 
+std::optional<uint32_t> queryGraphicsFamilyIndice(VkPhysicalDevice device)
+{
+    std::cout << "start of queryGraphicsFamilyIndice" << std::endl;
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies{queueFamilyCount};
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+    int i = 0;
+    for (auto&& queueFamily : queueFamilies)
+    {
+        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            return i;
+        }
+        ++i;
+    }
+
+    return {};
+}
+
+vk_main::QueueFamiliesIndices queryQueueFamilies(const VkPhysicalDevice& device, VkSurfaceKHR surface)
+{
+    std::cout << "do we get here?" << std::endl;
+    vk_main::QueueFamiliesIndices indices;
+
+    indices.graphicsFamily = queryGraphicsFamilyIndice(device);
+    std::cout << "do we get here?" << std::endl;
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies{queueFamilyCount};
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+    for(int i = 0; i<queueFamilyCount; ++i)
+    {
+        std::cout << "do we get here?" << std::endl;
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+
+        if(presentSupport)
+        {
+            indices.presentationFamily = i;
+            return indices;
+        }
+        ++i;
+    }
+
+    return indices;
+}
+
+
+VkPhysicalDevice pickPhysicalDevice(const VkInstance& instance)
+{
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+    std::vector<VkPhysicalDevice> physicalDevices{deviceCount};
+    vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices.data());
+
+    if (deviceCount == 0)
+        throw std::runtime_error("No Vulkan supporting physical devices.");
+
+    // take first applicable
+    for (auto&& device : physicalDevices)
+    {
+        if (queryGraphicsFamilyIndice(device).has_value())
+            return device;
+    }
+
+    throw std::runtime_error("No device with all required queue families found.");
+}
+
+VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
+                            vk_main::QueueFamiliesIndices indices)
+{
+    std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
+    std::set<uint32_t> uniqueQueueFamiliesIndices =
+        {
+            indices.graphicsFamily.value(),
+            indices.presentationFamily.value(),
+        };
+
+    for(const auto& family : uniqueQueueFamiliesIndices)
+    {
+        float queuePriority = 1.0f;
+        deviceQueueCreateInfos.push_back([&physicalDevice, &queuePriority, family]
+            {
+                VkDeviceQueueCreateInfo queueCreateInfo{};
+
+                queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                queueCreateInfo.queueFamilyIndex = family;
+                queueCreateInfo.queueCount = 1;
+                queueCreateInfo.pQueuePriorities = &queuePriority;
+
+                return queueCreateInfo;
+            }());
+    }
+
+    // Right now we are not interested in any special features, so we enable none.
+    VkPhysicalDeviceFeatures deviceFeatures{};
+
+    const auto createInfo = [&deviceFeatures, &deviceQueueCreateInfos]{
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pQueueCreateInfos = deviceQueueCreateInfos.data();
+        createInfo.queueCreateInfoCount = deviceQueueCreateInfos.size();
+        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.enabledExtensionCount = 0;
+
+        return createInfo;
+    }();
+
+    VkDevice device{};
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create logical device!");
+    }
+
+    return device;
+}
+
 } // anonymous namespace
 
 namespace vk_main
@@ -190,6 +321,13 @@ void VulkanApplication::run()
 	initVulkan();
 	mainLoop();
 	cleanup();
+}
+
+void VulkanApplication::createSurface()
+{
+    if (glfwCreateWindowSurface(vkInstance, window, nullptr, &surface) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create window surface!");
+    }
 }
 
 void VulkanApplication::initWindow()
@@ -204,6 +342,13 @@ void VulkanApplication::initVulkan()
 {
 	vkInstance = createInstance();
 	debugMessenger = setupDebugMessenger(vkInstance);
+    createSurface();
+    vkPhysicalDevice = pickPhysicalDevice(vkInstance);
+    indices = queryQueueFamilies(vkPhysicalDevice, surface);
+    vkLogicalDevice = createLogicalDevice(vkPhysicalDevice, indices);
+
+    vkGetDeviceQueue(vkLogicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);
+    vkGetDeviceQueue(vkLogicalDevice, indices.presentationFamily.value(), 0, &presentationQueue);
 }
 
 void VulkanApplication::mainLoop()
@@ -221,6 +366,8 @@ void VulkanApplication::cleanup()
 		DestroyDebugUtilsMessengerEXT(vkInstance, debugMessenger, nullptr);
 	}
 
+    vkDestroySurfaceKHR(vkInstance, surface, nullptr);
+    vkDestroyDevice(vkLogicalDevice, nullptr);
 	vkDestroyInstance(vkInstance, nullptr);
 	glfwDestroyWindow(window);
 	glfwTerminate();
