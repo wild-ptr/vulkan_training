@@ -2,6 +2,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <optional>
+#include <vector>
 
 
 namespace vk_main
@@ -19,6 +20,12 @@ struct QueueFamiliesIndices
     }
 };
 
+struct SwapChainSupportDetails
+{
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
 
 class VulkanApplication
 {
@@ -31,6 +38,10 @@ private:
 	void mainLoop();
 	void cleanup(); // no RAII for now.
     void createSurface();
+    void createSwapChain();
+    void createImageViews();
+    void createGraphicsPipeline();
+    VkShaderModule createShaderModule(const std::vector<char>& code);
 
 // members
 	const size_t WIDTH = 1024;
@@ -44,6 +55,11 @@ private:
     VkQueue presentationQueue;
     VkSurfaceKHR surface;
     QueueFamiliesIndices indices;
+    VkSwapchainKHR swapChain;
+    VkFormat swapChainImageFormat;
+    VkExtent2D swapChainExtent;
+    std::vector<VkImage> swapChainImages;
+    std::vector<VkImageView> swapChainImageViews;
 };
 
 } // namespace vk_main

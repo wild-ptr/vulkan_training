@@ -6,6 +6,10 @@
 #include <cstring>
 #include <iostream>
 #include <optional>
+#include <cstdint>
+#include <algorithm>
+#include <thread>
+#include <fstream>
 
 #include "VulkanApplication.hpp"
 #include "Logger.hpp"
@@ -190,7 +194,6 @@ VkDebugUtilsMessengerEXT setupDebugMessenger(VkInstance instance)
 
 std::optional<uint32_t> queryGraphicsFamilyIndice(VkPhysicalDevice device)
 {
-    std::cout << "start of queryGraphicsFamilyIndice" << std::endl;
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
@@ -212,11 +215,9 @@ std::optional<uint32_t> queryGraphicsFamilyIndice(VkPhysicalDevice device)
 
 vk_main::QueueFamiliesIndices queryQueueFamilies(const VkPhysicalDevice& device, VkSurfaceKHR surface)
 {
-    std::cout << "do we get here?" << std::endl;
     vk_main::QueueFamiliesIndices indices;
 
     indices.graphicsFamily = queryGraphicsFamilyIndice(device);
-    std::cout << "do we get here?" << std::endl;
 
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -224,9 +225,8 @@ vk_main::QueueFamiliesIndices queryQueueFamilies(const VkPhysicalDevice& device,
     std::vector<VkQueueFamilyProperties> queueFamilies{queueFamilyCount};
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-    for(int i = 0; i<queueFamilyCount; ++i)
+    for(int i = 0; i < queueFamilyCount; ++i)
     {
-        std::cout << "do we get here?" << std::endl;
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
@@ -290,14 +290,18 @@ VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
 
     // Right now we are not interested in any special features, so we enable none.
     VkPhysicalDeviceFeatures deviceFeatures{};
+    std::vector<const char*> deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
 
-    const auto createInfo = [&deviceFeatures, &deviceQueueCreateInfos]{
+    const auto createInfo = [&deviceFeatures, &deviceQueueCreateInfos, &deviceExtensions]{
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         createInfo.pQueueCreateInfos = deviceQueueCreateInfos.data();
         createInfo.queueCreateInfoCount = deviceQueueCreateInfos.size();
         createInfo.pEnabledFeatures = &deviceFeatures;
-        createInfo.enabledExtensionCount = 0;
+        createInfo.enabledExtensionCount = deviceExtensions.size();
+        createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
         return createInfo;
     }();
@@ -308,6 +312,105 @@ VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
     }
 
     return device;
+}
+
+vk_main::SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    vk_main::SwapChainSupportDetails details;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+    uint32_t formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+    if(formatCount)
+    {
+        details.formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+    }
+
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+    if(presentModeCount)
+    {
+        details.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount,
+                details.presentModes.data());
+    }
+
+    return details;
+}
+
+VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
+{
+    for (auto&& format : formats)
+    {
+        if (format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+            format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            return format;
+    }
+
+    return formats[0]; // fallback, should not happen.
+}
+
+VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& presentModes)
+{
+    for (auto&& presentMode : presentModes)
+    {
+        if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+            return presentMode;
+    }
+
+    return VK_PRESENT_MODE_FIFO_KHR; // guaranteed availability.
+}
+
+VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window)
+{
+
+    if (capabilities.currentExtent.width != UINT32_MAX)
+    {
+        return capabilities.currentExtent;
+    }
+    else
+    {
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+
+        VkExtent2D actualExtent = {
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height)
+        };
+
+        // clamp between minimum and maximum extents supported by implementation
+        // seems like unnecessary step in 99.9% of cases.
+        actualExtent.width = std::max(capabilities.minImageExtent.width,
+                                      std::min(capabilities.maxImageExtent.width,
+                                               actualExtent.width));
+
+        actualExtent.height = std::max(capabilities.minImageExtent.width,
+                                      std::min(capabilities.maxImageExtent.height,
+                                               actualExtent.height));
+
+        return actualExtent;
+    }
+}
+
+std::vector<char> readFile(const std::string& filename)
+{
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if(!file.is_open())
+        throw std::runtime_error("cannot open shader file? Wrong path?");
+
+    size_t fileSize = (size_t) file.tellg();
+    std::vector<char> buffer(fileSize);
+
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+
+    return buffer;
 }
 
 } // anonymous namespace
@@ -338,6 +441,167 @@ void VulkanApplication::initWindow()
 	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 }
 
+void VulkanApplication::createSwapChain()
+{
+    glfwPollEvents();
+    auto swapChainSupport = querySwapChainSupport(vkPhysicalDevice, surface);
+
+    VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+    VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, window);
+
+    swapChainImageFormat = surfaceFormat.format;
+    swapChainExtent = extent;
+
+    uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
+    if(swapChainSupport.capabilities.maxImageCount > 0 and
+        imageCount > swapChainSupport.capabilities.maxImageCount)
+        imageCount = swapChainSupport.capabilities.maxImageCount;
+
+    const auto createInfo = [&, this]()
+        {
+            VkSwapchainCreateInfoKHR createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+            createInfo.surface = surface;
+
+            createInfo.minImageCount = imageCount;
+            createInfo.imageFormat = surfaceFormat.format;
+            createInfo.imageColorSpace = surfaceFormat.colorSpace;
+            createInfo.imageExtent = extent;
+            createInfo.imageArrayLayers = 1;
+            createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+            auto indices = queryQueueFamilies(vkPhysicalDevice, surface);
+
+            uint32_t queueFamilyIndices[] = {
+                indices.graphicsFamily.value(),
+                indices.presentationFamily.value()
+            };
+
+            if (indices.graphicsFamily != indices.presentationFamily)
+            {
+                createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+                createInfo.queueFamilyIndexCount = 2;
+                createInfo.pQueueFamilyIndices = queueFamilyIndices;
+            }
+            else
+            {
+                createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            }
+
+            // we dont want any transformations.
+            createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+
+            // blending with other windows in window system, we want to ignore alpha channel.
+            createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+            createInfo.presentMode = presentMode;
+            createInfo.clipped = VK_TRUE; // we dont care about pixels that are obscured by oth windows
+            createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+            return createInfo;
+        }();
+
+    dbgI << "attempting to create swapchain." << NEWL;
+
+    if (vkCreateSwapchainKHR(vkLogicalDevice, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create swapchain.");
+
+    uint32_t imagesCount;
+    vkGetSwapchainImagesKHR(vkLogicalDevice, swapChain, &imagesCount, nullptr);
+    swapChainImages.reserve(imagesCount);
+    vkGetSwapchainImagesKHR(vkLogicalDevice, swapChain, &imagesCount, swapChainImages.data());
+
+}
+
+void VulkanApplication::createImageViews()
+{
+    dbgI << "Creating image views." << NEWL;
+
+    swapChainImageViews.resize(swapChainImages.size());
+    for (size_t i = 0; i < swapChainImages.size(); ++i)
+    {
+        const auto createInfo = [&, this]
+        {
+            VkImageViewCreateInfo ci{};
+            ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            ci.image = swapChainImages[i];
+            ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            ci.format = swapChainImageFormat;
+
+            ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            ci.subresourceRange.baseMipLevel = 0;
+            ci.subresourceRange.levelCount = 1;
+            ci.subresourceRange.baseArrayLayer = 0;
+            ci.subresourceRange.layerCount = 1;
+
+            return ci;
+        }();
+
+        if (vkCreateImageView(vkLogicalDevice, &createInfo, nullptr, &swapChainImageViews[i])
+                != VK_SUCCESS)
+            throw std::runtime_error("Failed to create swapchain.");
+    }
+}
+
+VkShaderModule VulkanApplication::createShaderModule(const std::vector<char>& code)
+{
+    const auto createInfo = [&code, this]()
+    {
+        VkShaderModuleCreateInfo ci{};
+        ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        ci.codeSize = code.size();
+        ci.pCode = reinterpret_cast<const uint32_t*>(code.data());
+        return ci;
+    }();
+
+    VkShaderModule shaderModule;
+
+    if(vkCreateShaderModule(vkLogicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+        throw std::runtime_error("Cannot create shadermodule from code.");
+
+    return shaderModule;
+}
+
+void VulkanApplication::createGraphicsPipeline()
+{
+    auto vertShaderCode = readFile("shaders/vert.spv");
+    auto fragShaderCode = readFile("shaders/frag.spv");
+
+    auto vertModule = createShaderModule(vertShaderCode);
+    auto fragModule = createShaderModule(fragShaderCode);
+
+    const auto vertexStageCi = [&, this]
+    {
+        VkPipelineShaderStageCreateInfo ci;
+        ci.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        ci.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        ci.module = vertModule;
+        ci.pName = "main"; // shader entrypoint.
+
+        return ci;
+    }();
+
+    const auto fragmentStageCi = [&, this]
+    {
+        VkPipelineShaderStageCreateInfo ci;
+        ci.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        ci.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        ci.module = fragModule;
+        ci.pName = "main"; // shader entrypoint.
+
+        return ci;
+    }();
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertexStageCi, fragmentStageCi};
+
+    // Shader modules can be destroyed as shader stage will copy them.
+    // All of this will be RAII wrapped in the future.
+    vkDestroyShaderModule(vkLogicalDevice, vertModule, nullptr);
+    vkDestroyShaderModule(vkLogicalDevice, fragModule, nullptr);
+}
+
 void VulkanApplication::initVulkan()
 {
 	vkInstance = createInstance();
@@ -349,6 +613,11 @@ void VulkanApplication::initVulkan()
 
     vkGetDeviceQueue(vkLogicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);
     vkGetDeviceQueue(vkLogicalDevice, indices.presentationFamily.value(), 0, &presentationQueue);
+
+    createSwapChain();
+    createImageViews();
+
+    createGraphicsPipeline();
 }
 
 void VulkanApplication::mainLoop()
@@ -366,6 +635,10 @@ void VulkanApplication::cleanup()
 		DestroyDebugUtilsMessengerEXT(vkInstance, debugMessenger, nullptr);
 	}
 
+    for (auto&& image : swapChainImageViews)
+        vkDestroyImageView(vkLogicalDevice, image, nullptr);
+
+    vkDestroySwapchainKHR(vkLogicalDevice, swapChain, nullptr);
     vkDestroySurfaceKHR(vkInstance, surface, nullptr);
     vkDestroyDevice(vkLogicalDevice, nullptr);
 	vkDestroyInstance(vkInstance, nullptr);
