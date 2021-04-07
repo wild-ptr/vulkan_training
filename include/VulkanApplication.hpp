@@ -47,7 +47,7 @@ private:
     void createCommandPool();
     void createCommandBuffers();
     void recordCommandBuffers();
-    void createSemaphores();
+    void createSyncObjects();
 
     void drawFrame();
 
@@ -74,8 +74,12 @@ private:
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
-    VkSemaphore imageAvailableSemaphore;
-    VkSemaphore renderFinishedSemaphore;
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> inFlightFences;
+    std::vector<VkFence> imagesInFlight;
+
+    size_t currentFrame{0};
 };
 
 } // namespace vk_main

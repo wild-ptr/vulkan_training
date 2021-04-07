@@ -23,6 +23,7 @@ namespace
 #else
 	static constexpr bool enableValidationLayers = true;
 #endif
+    static constexpr auto maxFramesInFlight = 2u;
 
 std::vector<const char*> getRequiredExtensions(bool enableValidationLayers)
 {
@@ -832,15 +833,20 @@ void VulkanApplication::createRenderPass()
         sd.srcSubpass = VK_SUBPASS_EXTERNAL; // implicit subpass before dstSubpass.
         sd.dstSubpass = 0; // index of subpass
 
-        // we have to make renderpass wait for color attachment pipeline stage.
-        // This means we wont transition the image layout before memory layout transition.
-        // Since the color attachment stage of pipeline waits for swapchain image,
-        // renderpass will wait untill image is available before transitioning.
+        // The renderpass has two implicit stages, one at the end of the render pass
+        // to transition image into presentation layout, and one at the beginning to
+        // transition newly acquired image to beginning layout.
+        // The renderpass will do this in the very moment we start our pipeline,
+        // and this is too early, as we still havent acquired an image at this point.
+        // So we tell renderpass to wait with transitions untill we get to fragment shader,
+        // as then (as we specified with semaphores during submission) image must be available to us.
+        // src - wait on this stage to happen
         sd.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         sd.srcAccessMask = 0;
 
         // Color attachment write operation in color attachment stage
         // should wait for transition before writing.
+        // what should wait on src - in our case attachment writing should wait.
         sd.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         sd.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
@@ -985,16 +991,30 @@ void VulkanApplication::recordCommandBuffers()
 
 }
 
-void VulkanApplication::createSemaphores()
+void VulkanApplication::createSyncObjects()
 {
+    imageAvailableSemaphores.resize(maxFramesInFlight);
+    renderFinishedSemaphores.resize(maxFramesInFlight);
+
+    inFlightFences.resize(maxFramesInFlight);
+    imagesInFlight.resize(swapChainFramebuffers.size(), VK_NULL_HANDLE);
+
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-    if (vkCreateSemaphore(vkLogicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphore)
-            != VK_SUCCESS or
-    vkCreateSemaphore(vkLogicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphore)
-            != VK_SUCCESS)
-        throw std::runtime_error("failed to create semaphores!");
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    for(size_t i = 0; i < imageAvailableSemaphores.size(); ++i)
+    {
+        if (vkCreateSemaphore(vkLogicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i])
+                != VK_SUCCESS or
+        vkCreateSemaphore(vkLogicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i])
+                != VK_SUCCESS or
+        vkCreateFence(vkLogicalDevice, &fenceInfo, nullptr, &inFlightFences[i] ) != VK_SUCCESS)
+            throw std::runtime_error("failed to create semaphores!");
+    }
 }
 
 void VulkanApplication::initVulkan()
@@ -1021,7 +1041,7 @@ void VulkanApplication::initVulkan()
     createCommandBuffers();
     recordCommandBuffers();
 
-    createSemaphores();
+    createSyncObjects();
 }
 
 void VulkanApplication::mainLoop()
@@ -1037,18 +1057,24 @@ void VulkanApplication::mainLoop()
 
 void VulkanApplication::drawFrame()
 {
+    vkWaitForFences(vkLogicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
     uint32_t imageIndex;
     vkAcquireNextImageKHR(vkLogicalDevice,
                           swapChain,
                           UINT64_MAX, // timeout in ns, uint64_max disables timeout.
-                          imageAvailableSemaphore,
+                          imageAvailableSemaphores[currentFrame],
                           VK_NULL_HANDLE, //fence, if applicable.
                           &imageIndex);
 
-    VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+    if(imagesInFlight[imageIndex] != VK_NULL_HANDLE)
+        vkWaitForFences(vkLogicalDevice, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+    imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+
+    VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
-    VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
+    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame] };
 
     const auto submitInfo = [&waitSemaphores, &waitStages, &signalSemaphores, imageIndex, this]
     {
@@ -1072,8 +1098,9 @@ void VulkanApplication::drawFrame()
         return submitInfo;
     }();
 
-    // VK_NULL_HANDLE specifies a fence to signal when execution is finished.
-    if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+    vkResetFences(vkLogicalDevice, 1, &inFlightFences[currentFrame]);
+
+    if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
         throw std::runtime_error("Cannot submit to queue");
 
     VkSwapchainKHR swapchains[] = {swapChain};
@@ -1095,6 +1122,7 @@ void VulkanApplication::drawFrame()
 
     vkQueuePresentKHR(presentationQueue, &presentInfo);
 
+    currentFrame = (currentFrame + 1) % maxFramesInFlight;
 }
 
 void VulkanApplication::cleanup()
@@ -1104,8 +1132,12 @@ void VulkanApplication::cleanup()
 		DestroyDebugUtilsMessengerEXT(vkInstance, debugMessenger, nullptr);
 	}
 
-    vkDestroySemaphore(vkLogicalDevice, imageAvailableSemaphore, nullptr);
-    vkDestroySemaphore(vkLogicalDevice, renderFinishedSemaphore, nullptr);
+    for(size_t i = 0; i < imageAvailableSemaphores.size(); ++i)
+    {
+        vkDestroySemaphore(vkLogicalDevice, imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(vkLogicalDevice, renderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(vkLogicalDevice, inFlightFences[i], nullptr);
+    }
 
     vkDestroyCommandPool(vkLogicalDevice, commandPool, nullptr);
 
