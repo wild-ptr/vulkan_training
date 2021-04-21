@@ -14,6 +14,7 @@
 
 #include "VulkanApplication.hpp"
 #include "Logger.hpp"
+#include "Shader.hpp"
 
 namespace
 {
@@ -215,9 +216,9 @@ std::optional<uint32_t> queryGraphicsFamilyIndice(VkPhysicalDevice device)
     return {};
 }
 
-vk_main::QueueFamiliesIndices queryQueueFamilies(const VkPhysicalDevice& device, VkSurfaceKHR surface)
+render::QueueFamiliesIndices queryQueueFamilies(const VkPhysicalDevice& device, VkSurfaceKHR surface)
 {
-    vk_main::QueueFamiliesIndices indices;
+    render::QueueFamiliesIndices indices;
 
     indices.graphicsFamily = queryGraphicsFamilyIndice(device);
 
@@ -256,12 +257,11 @@ VkPhysicalDevice pickPhysicalDevice(const VkInstance& instance)
 
     if(queryGraphicsFamilyIndice(physicalDevices[0]).has_value())
     {
-        dbgI << "NVIDIA CHOSEN" << NEWL;
+        dbgI << "Device 0, probably Intel HD Graphics." << NEWL;
         return physicalDevices[0];
     }
     else
     {
-        dbgI << "INTEL CHOSEN" << NEWL;
         return physicalDevices[1];
     }
 
@@ -282,7 +282,7 @@ VkPhysicalDevice pickPhysicalDevice(const VkInstance& instance)
 }
 
 VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
-                            vk_main::QueueFamiliesIndices indices)
+                            render::QueueFamiliesIndices indices)
 {
     std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
     std::set<uint32_t> uniqueQueueFamiliesIndices =
@@ -333,9 +333,9 @@ VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
     return device;
 }
 
-vk_main::SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface)
+render::SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-    vk_main::SwapChainSupportDetails details;
+    render::SwapChainSupportDetails details;
 
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
@@ -434,7 +434,7 @@ std::vector<char> readFile(const std::string& filename)
 
 } // anonymous namespace
 
-namespace vk_main
+namespace render
 {
 
 void VulkanApplication::run()
@@ -469,6 +469,7 @@ void VulkanApplication::createSwapChain()
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
     VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, window);
 
+    // members initialization as we need that data later.
     swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
 
@@ -513,6 +514,7 @@ void VulkanApplication::createSwapChain()
             createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
 
             // blending with other windows in window system, we want to ignore alpha channel.
+            // Otherwise our application would become semi-transparent except of what we are rendering
             createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
             createInfo.presentMode = presentMode;
@@ -527,6 +529,7 @@ void VulkanApplication::createSwapChain()
     if (vkCreateSwapchainKHR(vkLogicalDevice, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
         throw std::runtime_error("Failed to create swapchain.");
 
+    // And there we get vkImage handles from swapchain.
     uint32_t imagesCount;
     vkGetSwapchainImagesKHR(vkLogicalDevice, swapChain, &imagesCount, nullptr);
     swapChainImages.resize(imagesCount);
@@ -587,199 +590,13 @@ VkShaderModule VulkanApplication::createShaderModule(const std::vector<char>& co
 
 void VulkanApplication::createGraphicsPipeline()
 {
-    auto vertShaderCode = readFile("shaders/vert.spv");
-    auto fragShaderCode = readFile("shaders/frag.spv");
+    std::vector<Shader> shaders;
+        shaders.emplace_back(vkLogicalDevice, "shaders/vert.spv", EShaderType::VERTEX_SHADER);
+        shaders.emplace_back(vkLogicalDevice, "shaders/frag.spv", EShaderType::FRAGMENT_SHADER);
 
-    auto vertModule = createShaderModule(vertShaderCode);
-    auto fragModule = createShaderModule(fragShaderCode);
-
-    const auto vertexStageCi = [&, this]
-    {
-        VkPipelineShaderStageCreateInfo ci{};
-        ci.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        ci.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        ci.module = vertModule;
-        ci.pName = "main"; // shader entrypoint.
-
-        return ci;
-    }();
-
-    const auto fragmentStageCi = [&, this]
-    {
-        VkPipelineShaderStageCreateInfo ci{};
-        ci.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        ci.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        ci.module = fragModule;
-        ci.pName = "main"; // shader entrypoint.
-
-        return ci;
-    }();
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertexStageCi, fragmentStageCi};
-
-    // This structure is used for vertex buffers. We have none for now as data is in vshader.
-    const auto vertexInputInfo = []
-    {
-        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = 0;
-        vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-        vertexInputInfo.vertexAttributeDescriptionCount = 0;
-        vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
-        return vertexInputInfo;
-    }();
-
-    const auto inputAssembly = []
-    {
-        VkPipelineInputAssemblyStateCreateInfo ci{};
-        ci.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        ci.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        ci.primitiveRestartEnable = VK_FALSE;
-        return ci;
-    }();
-
-    const auto viewport = [this]
-    {
-        VkViewport vp{};
-        vp.x = 0.0f;
-        vp.y = 0.0f;
-        vp.width = (float) swapChainExtent.width;
-        vp.height = (float) swapChainExtent.height;
-        vp.minDepth = 0.0f;
-        vp.maxDepth = 1.0f;
-        return vp;
-    }();
-
-    const auto scissor = [this]
-    {
-        VkRect2D scissor;
-        scissor.offset = {0,0};
-        scissor.extent = swapChainExtent;
-        return scissor;
-    }();
-
-    const auto viewportState = [&viewport, &scissor]
-    {
-        VkPipelineViewportStateCreateInfo vs{};
-        vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        vs.viewportCount = 1;
-        vs.pViewports = &viewport;
-        vs.scissorCount = 1;
-        vs.pScissors = &scissor;
-
-        return vs;
-    }();
-
-    const auto rasterizer = []
-    {
-        VkPipelineRasterizationStateCreateInfo rs{};
-        rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rs.depthClampEnable = VK_FALSE;
-        rs.rasterizerDiscardEnable = VK_FALSE; // otherwise no rasterization will occur.
-        rs.polygonMode = VK_POLYGON_MODE_FILL;
-        rs.lineWidth = 1.0f;
-
-        rs.cullMode = VK_CULL_MODE_BACK_BIT;
-        rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
-
-        rs.depthBiasEnable = VK_FALSE;
-
-        return rs;
-    }();
-
-    const auto multisampling = []
-    {
-        VkPipelineMultisampleStateCreateInfo ms{};
-        ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        ms.sampleShadingEnable = VK_FALSE;
-        ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-        return ms;
-    }();
-
-    const auto colorBlendAttachment = []
-    {
-        VkPipelineColorBlendAttachmentState cba{};
-        cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        cba.blendEnable = VK_TRUE;
-        cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        cba.colorBlendOp = VK_BLEND_OP_ADD;
-        cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        cba.alphaBlendOp = VK_BLEND_OP_ADD;
-        return cba;
-    }();
-
-    const auto colorBlend = [&colorBlendAttachment]
-    {
-        VkPipelineColorBlendStateCreateInfo cb{};
-        cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        cb.logicOpEnable = VK_FALSE;
-        cb.logicOp = VK_LOGIC_OP_COPY;
-        cb.attachmentCount = 1;
-        cb.pAttachments = &colorBlendAttachment;
-
-        return cb;
-    }();
-
-    VkDynamicState dynamicStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_LINE_WIDTH
-    };
-
-    const auto dynamicState = [&dynamicStates]
-    {
-        VkPipelineDynamicStateCreateInfo ds{};
-        ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-        ds.dynamicStateCount = 2;
-        ds.pDynamicStates = dynamicStates;
-        return ds;
-    }();
-
-    // This is used to pass uniforms. Empty for now.
-    const auto pipelineLayoutInfo = []
-    {
-        VkPipelineLayoutCreateInfo pli{};
-        pli.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        return pli;
-    }();
-
-    if (vkCreatePipelineLayout(vkLogicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout)
-            != VK_SUCCESS)
-        throw std::runtime_error("Failed to create pipeline layout.");
-
-    const auto pipelineInfo = [&]
-    {
-        VkGraphicsPipelineCreateInfo pci{};
-        pci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pci.stageCount = 2;
-        pci.pStages = shaderStages;
-
-        pci.pVertexInputState = &vertexInputInfo;
-        pci.pInputAssemblyState = &inputAssembly;
-        pci.pViewportState = &viewportState;
-        pci.pRasterizationState = &rasterizer;
-        pci.pMultisampleState = &multisampling;
-        pci.pDepthStencilState = nullptr;
-        pci.pColorBlendState = &colorBlend;
-        pci.pDynamicState = nullptr; // why
-
-        pci.layout = pipelineLayout;
-        pci.renderPass = renderPass;
-        pci.subpass = 0; // so i can only choose one?
-
-        return pci;
-    }();
-
-    if(vkCreateGraphicsPipelines(vkLogicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-                &graphicsPipeline) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create graphics pipeline");
-
-    // Shader modules can be destroyed as shader stage will copy them.
-    // All of this will be RAII wrapped in the future.
-    vkDestroyShaderModule(vkLogicalDevice, vertModule, nullptr);
-    vkDestroyShaderModule(vkLogicalDevice, fragModule, nullptr);
+    dbgI << "before pipeline creation, Shaders size: " << shaders.size() << NEWL;
+    pipeline = Pipeline{shaders, swapChainExtent, vkLogicalDevice, renderPass};
+    dbgI << "After pipeline creation" << NEWL;
 }
 
 void VulkanApplication::createRenderPass()
@@ -789,7 +606,7 @@ void VulkanApplication::createRenderPass()
     {
         VkAttachmentDescription ca{}; // DESCRIPTION
         ca.format = swapChainImageFormat;
-        ca.samples = VK_SAMPLE_COUNT_1_BIT;
+        ca.samples = VK_SAMPLE_COUNT_1_BIT; // this is used for MSAA.
 
         ca.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // reset background to black per frame.
         ca.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // store results to be read later to present.
@@ -817,6 +634,7 @@ void VulkanApplication::createRenderPass()
         return car;
     }(); // so this subpass is rendering to color attachment. Easy enough.
 
+    // Now this is important, we bind fragment shader output to render target there.
     const auto subpass = [&colorAttachmentRef]
     {
         VkSubpassDescription sp{};
@@ -876,6 +694,7 @@ void VulkanApplication::createRenderPass()
     dbgI << "created renderpass!" << NEWL;
 }
 
+// We can actually plug in multiple vkImages into the renderpass right there.
 void VulkanApplication::createFramebuffers()
 {
     dbgI << "swapChainImageViews size: " << swapChainImageViews.size() << NEWL;
@@ -979,7 +798,8 @@ void VulkanApplication::recordCommandBuffers()
         }();
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipeline.getHandle());
         vkCmdDraw(commandBuffers[i], 3, 1, 0, 0); // 3 vertices, 1 instance,
                                                   // offset of vertex, offset of instance
 
@@ -1034,6 +854,7 @@ void VulkanApplication::initVulkan()
 
     createRenderPass();
     createGraphicsPipeline();
+    dbgI << "after pipeline creation step!" << NEWL;
 
     createFramebuffers();
 
@@ -1057,6 +878,8 @@ void VulkanApplication::mainLoop()
 
 void VulkanApplication::drawFrame()
 {
+    // we check whether we can actually start rendering another frame, we want to have
+    // a maximum of maxFramesInFlight on queue.
     vkWaitForFences(vkLogicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
@@ -1067,9 +890,16 @@ void VulkanApplication::drawFrame()
                           VK_NULL_HANDLE, //fence, if applicable.
                           &imageIndex);
 
+    // The first fence is not enough of a synchronization point, as the vkAcquireNextImageKHR
+    // can actually give us frames out-of-order, or we can have less images in swapchain
+    // than our maximum frames in flight setting. Therefore we also have to check if given
+    // swapchain image is not used by another frame, and if so, we have to stall.
     if(imagesInFlight[imageIndex] != VK_NULL_HANDLE)
         vkWaitForFences(vkLogicalDevice, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
     imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+
+    // The inFlightFences[currentFrame] is lit now.
+    // So is imagesInFlight[imageIndex], as they are one and the same fence.
 
     VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -1098,8 +928,11 @@ void VulkanApplication::drawFrame()
         return submitInfo;
     }();
 
+    // then we reset the fence, so we can stall
     vkResetFences(vkLogicalDevice, 1, &inFlightFences[currentFrame]);
 
+    // dont we have a race condition there? Yes but this is not multithreaded.
+    // easy.
     if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
         throw std::runtime_error("Cannot submit to queue");
 
@@ -1160,4 +993,6 @@ void VulkanApplication::cleanup()
 }
 
 
-} // namespace vk_main
+
+} // namespace render
+

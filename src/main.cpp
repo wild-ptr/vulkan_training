@@ -6,7 +6,7 @@
 #include "VulkanApplication.hpp"
 
 int main() {
-	vk_main::VulkanApplication app;
+	render::VulkanApplication app;
 
 	try
 	{

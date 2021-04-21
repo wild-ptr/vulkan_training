@@ -4,8 +4,9 @@
 #include <optional>
 #include <vector>
 
+#include "Pipeline.hpp"
 
-namespace vk_main
+namespace render
 {
 
 struct QueueFamiliesIndices
@@ -71,6 +72,7 @@ private:
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+    Pipeline pipeline;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
