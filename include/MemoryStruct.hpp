@@ -1,30 +1,28 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <array>
 
-
-// this class is to be derived from. It is a simple mixin
-// giving DerivedType access to bidnding description.
-
-template<typename Derived>
-class MemoryStructBase
+namespace render
 {
-    MemoryStructBase(VkVertexInputBindingDescription desc)
-        : bindingDescription(std::move(desc))
-    {}
+template<unsigned N>
+using AttributeDescriptors = std::array<VkVertexInputAttributeDescription, N>;
+} // namespace render
 
-    Derived* getStruct()
-    {
-        return static_cast<Derived*>(this);
-    }
+// hpp macros
+#define RF_VULKAN_VERTEX_DESCRIPTORS(numOfAttributes) \
+    const static VkVertexInputBindingDescription bindingDescriptor; \
+    const static AttributeDescriptors<(numOfAttributes)> attributeDescriptors; \
+    const static size_t rf_attrib_number = (numOfAttributes);
 
-    virtual ~MemoryStructBase() = default;
+#define RF_VULKAN_VERTEX_DESCRIPTORS_GETTERS \
+    const auto& getBindingDescriptor() const { return bindingDescriptor; }\
+    const auto& getAttributeDescriptors() const { return attributeDescriptors; }
 
-    VkVertexInputBindingDescription getBindingDescription()
-    {
-        return bindingDescription;
-    }
+// cpp macros
+#define RF_VULKAN_VERTEX_DESCRIPTORS_DEFINE_BINDING(Class, Binding) \
+    const VkVertexInputBindingDescription Class::bindingDescriptor = (Binding)
 
-private:
-    VkVertexInputBindingDescription bindingDescription;
-};
+#define RF_VULKAN_VERTEX_DESCRIPTORS_DEFINE_ATTRIBUTES(Class, Attributes) \
+    const AttributeDescriptors<Class::rf_attrib_number> \
+        Class::attributeDescriptors = (Attributes)
