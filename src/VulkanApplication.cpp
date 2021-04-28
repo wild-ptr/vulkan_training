@@ -15,6 +15,7 @@
 #include "VulkanApplication.hpp"
 #include "Logger.hpp"
 #include "Shader.hpp"
+#include "Vertex.hpp"
 
 namespace
 {
@@ -590,13 +591,12 @@ VkShaderModule VulkanApplication::createShaderModule(const std::vector<char>& co
 
 void VulkanApplication::createGraphicsPipeline()
 {
-    std::vector<Shader> shaders;
-        shaders.emplace_back(vkLogicalDevice, "shaders/vert.spv", EShaderType::VERTEX_SHADER);
-        shaders.emplace_back(vkLogicalDevice, "shaders/frag.spv", EShaderType::FRAGMENT_SHADER);
+    std::vector<Shader> shaders = {
+        Shader{vkLogicalDevice, "shaders/vert.spv", EShaderType::VERTEX_SHADER},
+        Shader{vkLogicalDevice, "shaders/frag.spv", EShaderType::FRAGMENT_SHADER}
+    };
 
-    dbgI << "before pipeline creation, Shaders size: " << shaders.size() << NEWL;
     pipeline = Pipeline{shaders, swapChainExtent, vkLogicalDevice, renderPass};
-    dbgI << "After pipeline creation" << NEWL;
 }
 
 void VulkanApplication::createRenderPass()
@@ -977,7 +977,7 @@ void VulkanApplication::cleanup()
     for(auto&& framebuffer : swapChainFramebuffers)
         vkDestroyFramebuffer(vkLogicalDevice, framebuffer, nullptr);
 
-    vkDestroyPipelineLayout(vkLogicalDevice, pipelineLayout, nullptr);
+    //vkDestroyPipelineLayout(vkLogicalDevice, pipelineLayout, nullptr);
     vkDestroyRenderPass(vkLogicalDevice, renderPass, nullptr);
     vkDestroyPipeline(vkLogicalDevice, graphicsPipeline, nullptr);
 

@@ -186,7 +186,6 @@ Pipeline::Pipeline(const std::vector<Shader>& shaders,
 
 Pipeline::~Pipeline()
 {
-    dbgI << "Pipeline dtor()" << NEWL;
     if(pipelineLayout != VK_NULL_HANDLE)
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
@@ -199,15 +198,12 @@ Pipeline::Pipeline(Pipeline&& rhs)
     , pipelineLayout(rhs.pipelineLayout)
     , device(rhs.device)
 {
-    dbgI << "Pipeline move ctor()" << NEWL;
     rhs.pipeline = VK_NULL_HANDLE;
     rhs.pipelineLayout = VK_NULL_HANDLE;
 }
 
 Pipeline& Pipeline::operator=(Pipeline&& rhs)
 {
-    dbgI << "Pipeline move assignment()" << NEWL;
-
     pipeline = rhs.pipeline;
     pipelineLayout = rhs.pipelineLayout;
 

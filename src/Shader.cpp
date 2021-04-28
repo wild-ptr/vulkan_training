@@ -59,27 +59,44 @@ Shader::Shader(VkDevice device, const std::string& path, EShaderType type)
     : device(device)
 {
     auto vShaderCode = utils::readFileBinary(path);
-    shaderModule = createShaderModule(vShaderCode, device);
-    createInfo = makeShaderCreateInfo(type, shaderModule);
+    //shaderModule = createShaderModule(vShaderCode, device);
+    // This pointer with custom deleter is wholly responsible for
+    // VkShaderModule lifetime. This allows copy constructor to work
+    // effectively.
+    shaderModule = std::shared_ptr<VkShaderModule>
+        {new VkShaderModule(createShaderModule(vShaderCode, device)),
+            [device](VkShaderModule* p)
+            {
+                vkDestroyShaderModule(device, *p, nullptr);
+                delete p;
+            }};
+
+    createInfo = makeShaderCreateInfo(type, *shaderModule);
 }
 
 Shader::Shader(Shader&& rhs)
-    : shaderModule(rhs.shaderModule)
+    : shaderModule(std::move(rhs.shaderModule))
     , createInfo(rhs.createInfo)
     , device(rhs.device)
 {
-    rhs.shaderModule = VK_NULL_HANDLE;
+    //rhs.shaderModule = VK_NULL_HANDLE;
+    rhs.shaderModule.reset();
     rhs.device = VK_NULL_HANDLE;
     rhs.createInfo = decltype(rhs.createInfo){};
 }
 
+Shader::Shader(const Shader& rhs)
+    : shaderModule(rhs.shaderModule)
+    , createInfo(rhs.createInfo)
+    , device(rhs.device)
+{
+}
+
 Shader::~Shader()
 {
-    dbgI << "Shader dtor()" << NEWL;
     if(shaderModule != VK_NULL_HANDLE)
     {
-        dbgI << "Destroying handle: " << shaderModule << NEWL;
-        vkDestroyShaderModule(device, shaderModule, nullptr);
+        //vkDestroyShaderModule(device, shaderModule, nullptr);
     }
 }
 
@@ -90,7 +107,12 @@ VkPipelineShaderStageCreateInfo Shader::getCi() const
 
 VkShaderModule Shader::getShaderModule() const
 {
-    return shaderModule;
+    return *shaderModule;
+}
+
+VkDevice Shader::getDevice() const
+{
+    return device;
 }
 
 } // namespace render
