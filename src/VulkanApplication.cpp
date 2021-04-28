@@ -596,7 +596,8 @@ void VulkanApplication::createGraphicsPipeline()
         Shader{vkLogicalDevice, "shaders/frag.spv", EShaderType::FRAGMENT_SHADER}
     };
 
-    pipeline = Pipeline{shaders, swapChainExtent, vkLogicalDevice, renderPass};
+    pipeline = Pipeline(shaders, swapChainExtent, vkLogicalDevice, renderPass,
+            Pipeline::vertex_input_tag<Vertex>{});
 }
 
 void VulkanApplication::createRenderPass()

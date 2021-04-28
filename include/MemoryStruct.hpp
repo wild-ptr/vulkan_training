@@ -16,8 +16,9 @@ using AttributeDescriptors = std::array<VkVertexInputAttributeDescription, N>;
     const static size_t rf_attrib_number = (numOfAttributes);
 
 #define RF_VULKAN_VERTEX_DESCRIPTORS_GETTERS \
-    const auto& getBindingDescriptor() const { return bindingDescriptor; }\
-    const auto& getAttributeDescriptors() const { return attributeDescriptors; }
+    static const auto* getBindingDescriptor() { return std::addressof(bindingDescriptor); }\
+    static const auto* getAttributeDescriptors() { return std::addressof(attributeDescriptors); } \
+    static size_t getAttributeCount() { return rf_attrib_number; }
 
 // cpp macros
 #define RF_VULKAN_VERTEX_DESCRIPTORS_DEFINE_BINDING(Class, Binding) \

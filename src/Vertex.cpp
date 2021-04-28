@@ -32,7 +32,6 @@ RF_VULKAN_VERTEX_DESCRIPTORS_DEFINE_ATTRIBUTES(Vertex,
         return desc;
     }());
 
-
 Vertex::Vertex(glm::vec2 pos, glm::vec3 color)
     : pos(std::move(pos))
     , color(std::move(color))
