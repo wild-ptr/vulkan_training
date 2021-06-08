@@ -67,14 +67,16 @@ Pipeline(const std::vector<Shader>& shaders,
             VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
             vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
+            // I only support one vertex binding description now, but this can
+            // be extended in the future.
             vertexInputInfo.vertexBindingDescriptionCount = 1;
             vertexInputInfo.pVertexBindingDescriptions =
-                InputVertexFormat::getBindingDescriptor();
+                std::addressof(InputVertexFormat::getBindingDescriptor());
 
             vertexInputInfo.vertexAttributeDescriptionCount =
                 InputVertexFormat::getAttributeCount();
             vertexInputInfo.pVertexAttributeDescriptions =
-                InputVertexFormat::getAttributeDescriptors()->data();
+                InputVertexFormat::getAttributeDescriptors().data();
 
             return vertexInputInfo;
         }();

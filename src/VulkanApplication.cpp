@@ -558,7 +558,7 @@ void VulkanApplication::mainLoop()
 		glfwPollEvents();
         drawFrame();
 
-        vkDeviceWaitIdle(vkDevice.getDevice());
+        //vkDeviceWaitIdle(vkLogicalDevice);
 	}
 }
 
@@ -658,9 +658,9 @@ void VulkanApplication::cleanup()
     for(auto&& framebuffer : swapChainFramebuffers)
         vkDestroyFramebuffer(vkDevice.getDevice(), framebuffer, nullptr);
 
-    //vkDestroyPipelineLayout(vkDevice.getDevice(), pipelineLayout, nullptr);
-    vkDestroyRenderPass(vkDevice.getDevice(), renderPass, nullptr);
-    vkDestroyPipeline(vkDevice.getDevice(), graphicsPipeline, nullptr);
+    //vkDestroyPipelineLayout(vkLogicalDevice, pipelineLayout, nullptr);
+    vkDestroyRenderPass(vkLogicalDevice, renderPass, nullptr);
+    //vkDestroyPipeline(vkLogicalDevice, graphicsPipeline, nullptr);
 
     for (auto&& image : swapChainImageViews)
         vkDestroyImageView(vkDevice.getDevice(), image, nullptr);
