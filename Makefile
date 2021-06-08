@@ -26,7 +26,7 @@ INCLUDES = -I include/
 # flags # add -flto later
 COMPILE_FLAGS = -std=c++17 -Wall -Wextra -g -O2 -fopenmp -fuse-ld=gold
 # Space-separated pkg-config libraries used by this project
-LINKER_FLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
+LINKER_FLAGS = -lxcb -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi 
 
 .PHONY: default_target
 default_target: release

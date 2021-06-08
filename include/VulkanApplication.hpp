@@ -5,21 +5,11 @@
 #include <vector>
 
 #include "Pipeline.hpp"
+#include "VulkanDevice.hpp"
+#include "VulkanInstance.hpp"
 
 namespace render
 {
-
-struct QueueFamiliesIndices
-{   // will get more populated in the future.
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentationFamily;
-
-    bool hasAllMembers()
-    {
-        return graphicsFamily.has_value() and
-               presentationFamily.has_value();
-    }
-};
 
 struct SwapChainSupportDetails
 {
@@ -55,18 +45,17 @@ private:
 // members
 	const size_t WIDTH = 1024;
 	const size_t HEIGHT = 768;
+
 	GLFWwindow* window;
-	VkInstance vkInstance;
-	VkDebugUtilsMessengerEXT debugMessenger;
-    VkPhysicalDevice vkPhysicalDevice;
-    VkDevice vkLogicalDevice;
-    VkQueue graphicsQueue;
-    VkQueue presentationQueue;
     VkSurfaceKHR surface;
-    QueueFamiliesIndices indices;
+
+	VulkanInstance vkInstance;
+	VulkanDevice vkDevice;
+
     VkSwapchainKHR swapChain;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
+
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;
     VkRenderPass renderPass;
