@@ -197,10 +197,10 @@ VulkanInstance::VulkanInstance(bool debugFlag)
 
 VulkanInstance::~VulkanInstance()
 {
-	if(validationLayersEnabled)
-		DestroyDebugUtilsMessengerEXT(vkInstance, debugMessenger, nullptr);
-
-	vkDestroyInstance(vkInstance, nullptr);
+	//if(validationLayersEnabled)
+	//	DestroyDebugUtilsMessengerEXT(vkInstance, debugMessenger, nullptr);
+    //
+	//vkDestroyInstance(vkInstance, nullptr);
 }
 
 } // namespace render

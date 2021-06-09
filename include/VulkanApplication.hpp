@@ -7,16 +7,11 @@
 #include "Pipeline.hpp"
 #include "VulkanDevice.hpp"
 #include "VulkanInstance.hpp"
+#include "VulkanSwapchain.hpp"
 
 namespace render
 {
 
-struct SwapChainSupportDetails
-{
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
 
 class VulkanApplication
 {
@@ -52,17 +47,21 @@ private:
 	VulkanInstance vkInstance;
 	VulkanDevice vkDevice;
 
-    VkSwapchainKHR swapChain;
-    VkFormat swapChainImageFormat;
-    VkExtent2D swapChainExtent;
+    VulkanSwapchain vkSwapchain;
 
-    std::vector<VkImage> swapChainImages;
-    std::vector<VkImageView> swapChainImageViews;
+    //VkSwapchainKHR swapChain;
+    //VkFormat swapChainImageFormat;
+    //VkExtent2D swapChainExtent;
+    //
+    //std::vector<VkImage> swapChainImages;
+    //std::vector<VkImageView> swapChainImageViews;
+
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     Pipeline pipeline;
-    std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;

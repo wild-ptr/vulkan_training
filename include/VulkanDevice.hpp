@@ -25,17 +25,15 @@ public:
 	VulkanDevice(VkInstance instance, VkSurfaceKHR);
 	~VulkanDevice();
 
-	VkDevice getDevice() { return vkLogicalDevice; }
-	VkPhysicalDevice getPhysicalDevice() { return vkPhysicalDevice; }
-	uint32_t getGraphicsQueueIndice() { return queueIndices.graphicsFamily.value(); };
-	uint32_t getPresentationQueueIndice() { return queueIndices.presentationFamily.value(); }
-	const QueueFamiliesIndices& getQueueIndices() { return queueIndices; }
-	VkQueue getGraphicsQueue() { return graphicsQueue; }
-	VkQueue getPresentationQueue() { return presentationQueue; }
+	VkDevice getDevice() const { return vkLogicalDevice; }
+	VkPhysicalDevice getPhysicalDevice() const { return vkPhysicalDevice; }
+	uint32_t getGraphicsQueueIndice() const { return queueIndices.graphicsFamily.value(); };
+	uint32_t getPresentationQueueIndice() const { return queueIndices.presentationFamily.value(); }
+	const QueueFamiliesIndices& getQueueIndices() const { return queueIndices; }
+	VkQueue getGraphicsQueue() const { return graphicsQueue; }
+	VkQueue getPresentationQueue() const { return presentationQueue; }
 
 private:
-	VkInstance instance;
-	VkSurfaceKHR surface;
     VkPhysicalDevice vkPhysicalDevice;
 	QueueFamiliesIndices queueIndices;
     VkDevice vkLogicalDevice;

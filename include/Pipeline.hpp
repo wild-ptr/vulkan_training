@@ -41,7 +41,7 @@ Pipeline(const std::vector<Shader>& shaders,
 
     for(auto& elem : shaderStagesCi)
     {
-        dbgI << "Shader data" << elem.pName << " module: " << elem.module;
+        dbgI << "Shader data" << elem.pName << " module: " << elem.module << NEWL;
     }
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};

@@ -133,9 +133,7 @@ VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
 namespace render
 {
 VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
-	: instance(instance)
-	, surface(surface)
-	, vkPhysicalDevice(pickPhysicalDevice(instance))
+	: vkPhysicalDevice(pickPhysicalDevice(instance))
 	, queueIndices(queryQueueFamilies(vkPhysicalDevice, surface))
 	, vkLogicalDevice(createLogicalDevice(vkPhysicalDevice, queueIndices))
 {
@@ -145,7 +143,7 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
 
 VulkanDevice::~VulkanDevice()
 {
-    vkDestroyDevice(vkLogicalDevice, nullptr);
+    //vkDestroyDevice(vkLogicalDevice, nullptr);
 }
 
 } // namespace render
