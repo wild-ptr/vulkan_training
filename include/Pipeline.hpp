@@ -13,6 +13,9 @@ class Pipeline
 {
 public:
 
+
+// All this machinery is used to pass vertex type that pipeline is going to be compatible to,
+// without baking it into pipeline type.
 struct PipelineNoInput{};
 
 template <typename T>
@@ -29,7 +32,7 @@ Pipeline(const std::vector<Shader>& shaders,
                    VkExtent2D swapChainExtent,
                    VkDevice device,
                    VkRenderPass renderPass,
-                   InputVertexTag vertexFormat = noInputTag)
+                   InputVertexTag = noInputTag)
     : device(device)
 {
     std::vector<VkPipelineShaderStageCreateInfo> shaderStagesCi{};
@@ -216,7 +219,7 @@ Pipeline(const std::vector<Shader>& shaders,
         pci.pMultisampleState = &multisampling;
         pci.pDepthStencilState = nullptr;
         pci.pColorBlendState = &colorBlend;
-        pci.pDynamicState = nullptr; // why
+        pci.pDynamicState = nullptr; // we dont bind dynamic state for now
 
         pci.layout = pipelineLayout;
         pci.renderPass = renderPass;

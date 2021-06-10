@@ -105,7 +105,9 @@ VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
     // Right now we are not interested in any special features, so we enable none.
     VkPhysicalDeviceFeatures deviceFeatures{};
     std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        //"VK_KHR_get_memory_requirements2",
+        //"VK_KHR_dedicated_allocation"
     };
 
     const auto createInfo = [&deviceFeatures, &deviceQueueCreateInfos, &deviceExtensions]{
@@ -143,7 +145,8 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
 
 VulkanDevice::~VulkanDevice()
 {
-    //vkDestroyDevice(vkLogicalDevice, nullptr);
+    //if(vkLogicalDevice != VK_NULL_HANDLE)
+    //    vkDestroyDevice(vkLogicalDevice, nullptr);
 }
 
 } // namespace render

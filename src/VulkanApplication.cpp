@@ -8,42 +8,52 @@
 #include <optional>
 #include <cstdint>
 #include <algorithm>
-#include <thread>
-#include <fstream>
-#include <string.h>
 
 #include "VulkanApplication.hpp"
 #include "Logger.hpp"
 #include "Shader.hpp"
 #include "Vertex.hpp"
+#include "TriangleMesh.hpp"
 
 namespace
 {
 
-#ifdef NDEBUG
-	static constexpr bool enableValidationLayers = false;
-#else
-	static constexpr bool enableValidationLayers = true;
-#endif
-
 static constexpr auto maxFramesInFlight = 2u;
 
-
-std::vector<char> readFile(const std::string& filename)
+VmaAllocator createVmaAllocator(
+        VkInstance instance,
+        VkPhysicalDevice physicalDevice,
+        VkDevice device)
 {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+    allocatorInfo.physicalDevice = physicalDevice;
+    allocatorInfo.device = device;
+    allocatorInfo.instance = instance;
 
-    if(!file.is_open())
-        throw std::runtime_error("cannot open shader file? Wrong path?");
+    VmaAllocator allocator;
+    vmaCreateAllocator(&allocatorInfo, &allocator);
 
-    size_t fileSize = (size_t) file.tellg();
-    std::vector<char> buffer(fileSize);
+    return allocator;
+}
 
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
 
-    return buffer;
+// this will be deleted in the future, dw.
+render::Mesh loadTriangleAsMesh(VmaAllocator allocator)
+{
+    std::vector<render::Vertex> mesh_data;
+    mesh_data.resize(3);
+
+    mesh_data[0].pos = { 1.f, 1.f, 0.0f };
+	mesh_data[1].pos = {-1.f, 1.f, 0.0f };
+	mesh_data[2].pos = { 0.f,-1.f, 0.0f };
+
+// we will use this as color data for now.
+    mesh_data[0].surf_normals = { 1.f, 0.f, 0.0f };
+	mesh_data[1].surf_normals = { 0.f, 1.f, 0.0f };
+	mesh_data[2].surf_normals = { 0.f, 0.f, 1.0f };
+
+    return render::Mesh(mesh_data, allocator);
 }
 
 } // anonymous namespace
@@ -61,7 +71,6 @@ void VulkanApplication::run()
 
 void VulkanApplication::createSurface()
 {
-	// why the fuck
     auto VkErr = glfwCreateWindowSurface(vkInstance.getInstance(), window, nullptr, &surface);
 
     if (VkErr != VK_SUCCESS)
@@ -153,7 +162,7 @@ void VulkanApplication::createRenderPass()
         // transition newly acquired image to beginning layout.
         // The renderpass will do this in the very moment we start our pipeline,
         // and this is too early, as we still havent acquired an image at this point.
-        // So we tell renderpass to wait with transitions untill we get to fragment shader,
+        // So we tell renderpass to wait with memory transitions untill we get to fragment shader,
         // as then (as we specified with semaphores during submission) image must be available to us.
         // src - wait on this stage to happen
         sd.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -236,7 +245,6 @@ void VulkanApplication::createCommandPool()
 
 void VulkanApplication::createCommandBuffers()
 {
-    dbgI << "swapChainFB size: " << swapChainFramebuffers.size() << NEWL;
     commandBuffers.resize(swapChainFramebuffers.size());
 
     const auto allocateInfo = [this]
@@ -293,6 +301,11 @@ void VulkanApplication::recordCommandBuffers()
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipeline.getHandle());
+
+        VkDeviceSize offset = 0;
+	    vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &triangle.getBufferInfo().memory_buffer, &offset);
+
+
         vkCmdDraw(commandBuffers[i], 3, 1, 0, 0); // 3 vertices, 1 instance,
                                                   // offset of vertex, offset of instance
 
@@ -301,7 +314,6 @@ void VulkanApplication::recordCommandBuffers()
         if(vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
             throw std::runtime_error("failed to record command buffer.");
     }
-
 }
 
 void VulkanApplication::createSyncObjects()
@@ -332,9 +344,23 @@ void VulkanApplication::createSyncObjects()
 
 void VulkanApplication::initVulkan()
 {
+    #ifdef NDEBUG
+    	static constexpr bool enableValidationLayers = false;
+    #else
+    	static constexpr bool enableValidationLayers = true;
+    #endif
+
 	vkInstance = VkInstance(enableValidationLayers);
     createSurface();
 	vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
+
+
+    vmaAllocator = createVmaAllocator(
+        vkInstance.getInstance(),
+        vkDevice.getPhysicalDevice(),
+        vkDevice.getDevice());
+
+    triangle = loadTriangleAsMesh(vmaAllocator);
 
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
 
@@ -352,13 +378,6 @@ void VulkanApplication::initVulkan()
 
 void VulkanApplication::mainLoop()
 {
-    const std::vector<Vertex> vertices = {
-        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
-    };
-
-
 	while (not glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
@@ -423,7 +442,8 @@ void VulkanApplication::drawFrame()
 
     // dont we have a race condition there? Yes but this is not multithreaded.
     // easy.
-    if(vkQueueSubmit(vkDevice.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
+    if(vkQueueSubmit(vkDevice.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame])
+            != VK_SUCCESS)
         throw std::runtime_error("Cannot submit to queue");
 
     VkSwapchainKHR swapchains[] = {vkSwapchain.getSwapchain()};

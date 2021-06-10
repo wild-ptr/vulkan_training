@@ -3,11 +3,13 @@
 #include <GLFW/glfw3.h>
 #include <optional>
 #include <vector>
+#include "vk_mem_alloc.h"
 
 #include "Pipeline.hpp"
 #include "VulkanDevice.hpp"
 #include "VulkanInstance.hpp"
 #include "VulkanSwapchain.hpp"
+#include "TriangleMesh.hpp"
 
 namespace render
 {
@@ -24,11 +26,8 @@ private:
 	void mainLoop();
 	void cleanup(); // no RAII for now.
     void createSurface();
-    void createSwapChain();
-    void createImageViews();
     void createGraphicsPipeline();
     void createRenderPass();
-    VkShaderModule createShaderModule(const std::vector<char>& code);
     void createFramebuffers();
     void createCommandPool();
     void createCommandBuffers();
@@ -44,19 +43,15 @@ private:
 	GLFWwindow* window;
     VkSurfaceKHR surface;
 
+    VmaAllocator vmaAllocator;
 	VulkanInstance vkInstance;
 	VulkanDevice vkDevice;
-
     VulkanSwapchain vkSwapchain;
 
-    //VkSwapchainKHR swapChain;
-    //VkFormat swapChainImageFormat;
-    //VkExtent2D swapChainExtent;
-    //
-    //std::vector<VkImage> swapChainImages;
-    //std::vector<VkImageView> swapChainImageViews;
+    Mesh triangle;
 
     std::vector<VkFramebuffer> swapChainFramebuffers;
+
 
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;

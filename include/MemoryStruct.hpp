@@ -7,15 +7,16 @@ namespace render
 {
 template<unsigned N>
 using AttributeDescriptors = std::array<VkVertexInputAttributeDescription, N>;
+
 } // namespace render
 
 // hpp macros
-#define RF_VULKAN_VERTEX_DESCRIPTORS(numOfAttributes) \
+#define RF_VULKAN_VERTEX_DESCRIPTORS_STATIC(numOfAttributes) \
     const static VkVertexInputBindingDescription bindingDescriptor; \
     const static AttributeDescriptors<(numOfAttributes)> attributeDescriptors; \
     const static size_t rf_attrib_number = (numOfAttributes);
 
-#define RF_VULKAN_VERTEX_DESCRIPTORS_GETTERS \
+#define RF_VULKAN_VERTEX_DESCRIPTORS_GETTERS_STATIC \
     static const auto& getBindingDescriptor() { return bindingDescriptor; }\
     static const auto& getAttributeDescriptors() { return attributeDescriptors; } \
     static size_t getAttributeCount() { return rf_attrib_number; }
