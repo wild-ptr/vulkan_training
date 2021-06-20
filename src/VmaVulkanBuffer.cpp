@@ -1,6 +1,5 @@
 #include <cstring>
 #include "VmaVulkanBuffer.hpp"
-#include "VulkanDevice.hpp"
 
 
 namespace render::memory
@@ -11,7 +10,7 @@ VmaVulkanBuffer::VmaVulkanBuffer(
     const void* data,
     size_t size,
     VkBufferUsageFlags vk_flags,
-    VmaMemoryUsage vma_usage)
+    const VmaMemoryUsage vma_usage)
     : allocator(allocator)
     , mapped_data(nullptr)
 {
@@ -36,6 +35,7 @@ void VmaVulkanBuffer::copyToBuffer(
         size = allocation_info.size;
     }
 
+    // function preserves
     bool was_previously_mapped = mapped_data;
 	memcpy(mem(), transfer_data, size);
 
@@ -51,6 +51,40 @@ void VmaVulkanBuffer::copyToBuffer(
     {
         unmap();
     }
+}
+
+// does not check *data size, care
+void VmaVulkanBuffer::copyToBuffer(const void* data, Offset offset_packed, Size size_packed)
+{
+    auto& offset = offset_packed.offset;
+    auto& size = size_packed.size;
+
+    if((not data) or (size == 0))
+    {
+        return;
+    }
+
+    bool was_previously_mapped = mapped_data;
+    std::byte* mapped_mem = static_cast<std::byte*>(mem());
+
+    // out-of-bounds check
+    if(mapped_mem + allocation_info.size < mapped_mem + offset + size)
+    {
+        throw std::runtime_error("Trying to write out of bounds to buffer with offset and size");
+    }
+
+	memcpy(mapped_mem + offset, data, size);
+
+	if ((allocated_memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
+	{
+		vmaFlushAllocation(allocator, allocation, 0, size);
+	}
+
+    if(not was_previously_mapped)
+    {
+        unmap();
+    }
+
 }
 
 void VmaVulkanBuffer::createMemoryBuffer(

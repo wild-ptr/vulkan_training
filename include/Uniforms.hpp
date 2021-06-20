@@ -13,6 +13,7 @@
 namespace render::memory
 {
 
+
 class Uniforms
 // so basically, this is a fully fledged uniform management class, no?
 // My struct Uniforms should be separate.
@@ -25,8 +26,6 @@ private:
     void createDescriptorPool(const VulkanDevice&, size_t num_of_swapchain_images);
     VkDescriptorPool descriptor_pool;
     std::vector<VkDescriptorSet> descriptor_sets;
-
 };
 
 } // namespace render::memory
-

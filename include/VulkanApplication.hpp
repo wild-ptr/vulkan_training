@@ -3,7 +3,6 @@
 #include <GLFW/glfw3.h>
 #include <optional>
 #include <vector>
-#include "vk_mem_alloc.h"
 
 #include "Pipeline.hpp"
 #include "VulkanDevice.hpp"

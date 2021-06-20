@@ -133,56 +133,28 @@ VkDevice createLogicalDevice(const VkPhysicalDevice& physicalDevice,
     return device;
 }
 
+VmaAllocator createVmaAllocator(
+        VkInstance instance,
+        VkPhysicalDevice physicalDevice,
+        VkDevice device)
+{
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+    allocatorInfo.physicalDevice = physicalDevice;
+    allocatorInfo.device = device;
+    allocatorInfo.instance = instance;
+
+    VmaAllocator allocator;
+    vmaCreateAllocator(&allocatorInfo, &allocator);
+
+    return allocator;
+}
+
+
 } // anon namespace
 
 namespace render
 {
-
-VkResult VulkanDevice::createVkBuffer(
-    VkBufferUsageFlags usage,
-    VkDeviceSize size,
-    VkBuffer* buffer)
-{
-    const auto buffer_ci = [usage, size]()
-        {
-            VkBufferCreateInfo ci{};
-            ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-            ci.usage = usage;
-            ci.size = size;
-            ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            return ci;
-        }();
-
-    return vkCreateBuffer(vkLogicalDevice, &buffer_ci, nullptr, buffer);
-}
-
-VkResult VulkanDevice::allocateVkDeviceMemory(
-    VkMemoryPropertyFlags mem_prop_flags,
-    VkBuffer buffer,
-    VkDeviceMemory* memory,
-    VkDeviceSize* alignment)
-{
-    VkMemoryRequirements mem_reqs;
-    vkGetBufferMemoryRequirements(vkLogicalDevice, buffer, &mem_reqs);
-
-    auto mem_alloc_info = [this, &mem_reqs, mem_prop_flags]()
-    	{
-			VkMemoryAllocateInfo mai{};
-			mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-			mai.allocationSize = mem_reqs.size;
-            mai.memoryTypeIndex = deviceUtils::getMemoryTypeIndex(
-                    getPhysicalDevice(), mem_reqs.memoryTypeBits, mem_prop_flags);
-			return mai;
-		}();
-
-    auto ret = vkAllocateMemory(vkLogicalDevice, &mem_alloc_info, nullptr, memory);
-
-    if(alignment and (ret == VK_SUCCESS))
-        *alignment = mem_reqs.alignment;
-
-    return ret;
-}
-
 VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
 	: vkPhysicalDevice(pickPhysicalDevice(instance))
 	, queueIndices(queryQueueFamilies(vkPhysicalDevice, surface))
@@ -194,6 +166,8 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
 
     vkGetDeviceQueue(vkLogicalDevice, getGraphicsQueueIndice(), 0, &graphicsQueue);
     vkGetDeviceQueue(vkLogicalDevice, getPresentationQueueIndice(), 0, &presentationQueue);
+
+    allocator = createVmaAllocator(instance, vkPhysicalDevice, vkLogicalDevice);
 }
 
 VulkanDevice::~VulkanDevice()

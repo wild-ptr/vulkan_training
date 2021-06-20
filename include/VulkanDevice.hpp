@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <optional>
 #include <vector>
+#include "vk_mem_alloc.h"
 
 namespace render
 {
@@ -33,18 +34,7 @@ public:
 	const QueueFamiliesIndices& getQueueIndices() const { return queueIndices; }
 	VkQueue getGraphicsQueue() const { return graphicsQueue; }
 	VkQueue getPresentationQueue() const { return presentationQueue; }
-
-
-    VkResult allocateVkDeviceMemory(
-        VkMemoryPropertyFlags mem_prop_flags,
-        VkBuffer buffer,
-        VkDeviceMemory* memory,
-        VkDeviceSize* alignment = nullptr);
-
-    VkResult createVkBuffer(
-        VkBufferUsageFlags usage,
-        VkDeviceSize size,
-        VkBuffer* buffer);
+    VmaAllocator getVmaAllocator() const { return allocator; }
 
 private:
     VkPhysicalDevice vkPhysicalDevice;
@@ -55,6 +45,7 @@ private:
     VkDevice vkLogicalDevice;
     VkQueue graphicsQueue;
     VkQueue presentationQueue;
+    VmaAllocator allocator;
 };
 
 namespace deviceUtils

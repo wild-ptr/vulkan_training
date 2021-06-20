@@ -14,28 +14,12 @@
 #include "Shader.hpp"
 #include "Vertex.hpp"
 #include "TriangleMesh.hpp"
+#include "UniformData.hpp"
 
 namespace
 {
 
 static constexpr auto maxFramesInFlight = 2u;
-
-VmaAllocator createVmaAllocator(
-        VkInstance instance,
-        VkPhysicalDevice physicalDevice,
-        VkDevice device)
-{
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
-    allocatorInfo.physicalDevice = physicalDevice;
-    allocatorInfo.device = device;
-    allocatorInfo.instance = instance;
-
-    VmaAllocator allocator;
-    vmaCreateAllocator(&allocatorInfo, &allocator);
-
-    return allocator;
-}
 
 
 // this will be deleted in the future, dw.
@@ -349,9 +333,9 @@ void VulkanApplication::createSyncObjects()
 // poligon
 struct UniformTest
 {
-    alignas(16) glm::mat4 model;
-    alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
+    alignas(16) glm::mat4 model{};
+    alignas(16) glm::mat4 view{};
+    alignas(16) glm::mat4 proj{};
     alignas(16) float time;
 };
 
@@ -367,15 +351,11 @@ void VulkanApplication::initVulkan()
     createSurface();
 	vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
 
+    triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
 
-    vmaAllocator = createVmaAllocator(
-        vkInstance.getInstance(),
-        vkDevice.getPhysicalDevice(),
-        vkDevice.getDevice());
 
-    triangle = loadTriangleAsMesh(vmaAllocator);
+    // PLAYGROUND ZONE -----------------------
 
-    // poligon
     // lets try to allocate a uniform buffer object.
     UniformTest ubo_data{
         .model = glm::mat4{1},
@@ -385,7 +365,7 @@ void VulkanApplication::initVulkan()
     };
 
     memory::VmaVulkanBuffer ubo
-        {vmaAllocator, &ubo_data, sizeof(ubo_data),
+        {vkDevice.getVmaAllocator(), &ubo_data, sizeof(ubo_data),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // buffer usage flags
         VMA_MEMORY_USAGE_CPU_TO_GPU}; // memory usage flags
 
@@ -401,8 +381,45 @@ void VulkanApplication::initVulkan()
         std::cout << data[i] << ", ";
     }
 
+
+
     std::cout << std::endl;
 
+    // metoda nowsza mniej dla zwierzat xD
+    memory::UniformData<UniformTest, 15> uboNew(vkDevice.getVmaAllocator());
+    uboNew.data()->proj = glm::mat4{3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3};
+    uboNew.update();
+
+    std::cout << "Printin with new method of swag" << std::endl;
+    for(int index = 0; index < 15; ++ index)
+    {
+        for(int i = 0; i < 4; ++i)
+        {
+            for(int j = 0; j < 4; ++j)
+                std::cout << uboNew[index].proj[i][j] << ", ";
+
+            std::cout << std::endl;
+        }
+
+        std::cout << std::endl;
+    }
+
+    std::cout << "cpu side state:" << std::endl;
+    for(int index = 0; index < 15; ++ index)
+    {
+        for(int i = 0; i < 4; ++i)
+        {
+            for(int j = 0; j < 4; ++j)
+                std::cout << uboNew.data()[index].proj[i][j] << ", ";
+
+            std::cout << std::endl;
+        }
+
+        std::cout << std::endl;
+    }
+
+    std::cout << std::endl;
+    // PLAYGROUND ZONE END -----------------------
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
 
     createRenderPass();

@@ -6,9 +6,23 @@
 #include <cstring>
 #include "Vertex.hpp"
 #include "VulkanMacros.hpp"
+#include "VulkanDevice.hpp"
 
 namespace render::memory
 {
+
+// explicit interface for copyToBuffer
+struct Offset
+{
+    Offset(size_t offset) : offset(offset) {}
+    size_t offset;
+};
+
+struct Size
+{
+    Size(size_t size) : size(size) {}
+    size_t size;
+};
 
 class VmaVulkanBuffer
 {
@@ -19,7 +33,7 @@ public:
         const void* data,
         size_t size,
         VkBufferUsageFlags vk_flags,
-        VmaMemoryUsage vma_usage);
+        const VmaMemoryUsage vma_usage);
 
     // ctor from std::vector<T> data
     template<typename T>
@@ -52,7 +66,8 @@ public:
 
     // copyToBuffer functions will truncate to buffer size if size is higher.
     void copyToBuffer(const void* data, size_t size);
-
+    void copyToBuffer(const void* data, Offset offset, Size size);
+    // hard interface types to avoid mistaking size and offset
 
 private:
     void createMemoryBuffer(
