@@ -23,6 +23,7 @@ class VulkanDevice
 public:
 	VulkanDevice(){}; // dummy ctor to allow deferred filling in. No checking, care.
 	VulkanDevice(VkInstance instance, VkSurfaceKHR);
+
 	~VulkanDevice();
 
 	VkDevice getDevice() const { return vkLogicalDevice; }
@@ -33,12 +34,42 @@ public:
 	VkQueue getGraphicsQueue() const { return graphicsQueue; }
 	VkQueue getPresentationQueue() const { return presentationQueue; }
 
+
+    VkResult allocateVkDeviceMemory(
+        VkMemoryPropertyFlags mem_prop_flags,
+        VkBuffer buffer,
+        VkDeviceMemory* memory,
+        VkDeviceSize* alignment = nullptr);
+
+    VkResult createVkBuffer(
+        VkBufferUsageFlags usage,
+        VkDeviceSize size,
+        VkBuffer* buffer);
+
 private:
     VkPhysicalDevice vkPhysicalDevice;
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+    VkPhysicalDeviceMemoryProperties deviceMemProperties;
 	QueueFamiliesIndices queueIndices;
     VkDevice vkLogicalDevice;
     VkQueue graphicsQueue;
     VkQueue presentationQueue;
 };
+
+namespace deviceUtils
+{
+
+uint32_t getMemoryTypeIndex(
+    VkPhysicalDevice physDevice,
+    uint32_t mem_type_bits,
+    VkMemoryPropertyFlags properties,
+    VkBool32* success = nullptr);
+
+VkMemoryPropertyFlags getMemoryProperties(
+    VkPhysicalDevice physDevice,
+    uint32_t memIndex);
+
+}
 
 } // namespace render

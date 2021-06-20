@@ -197,6 +197,7 @@ Pipeline(const std::vector<Shader>& shaders,
     const auto pipelineLayoutInfo = []
     {
         VkPipelineLayoutCreateInfo pli{};
+        // once again can i pass uniform type as a tag?
         pli.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         return pli;
     }();

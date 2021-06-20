@@ -24,7 +24,8 @@ DEPS = $(OBJECTS:.o=.d)
 INCLUDES = -I include/
 
 # flags # add -flto later
-COMPILE_FLAGS = -std=c++17 -Wall -Wextra -g -O2 -fopenmp -fuse-ld=gold
+COMPILE_FLAGS = -std=gnu++17 -Wall -Wextra -g -O2 -fopenmp -fuse-ld=gold
+COMPILE_FLAGS_NO_OPTIMIZATION = -std=gnu++17 -Wall -Wextra -g -O0 -fopenmp -fuse-ld=gold
 # Space-separated pkg-config libraries used by this project
 LINKER_FLAGS = -lxcb -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi 
 
@@ -40,6 +41,12 @@ release: dirs
 debug: export CXXFLAGS := $(CXXFLAGS) $(COMPILE_FLAGS)
 debug: dirs
 	@$(MAKE) all
+
+.PHONY: gdebug
+gdebug: export CXXFLAGS := $(CXXFLAGS) $(COMPILE_FLAGS_NO_OPTIMIZATION)
+gdebug: dirs
+	@$(MAKE) all
+
 
 .PHONY: dirs
 dirs:

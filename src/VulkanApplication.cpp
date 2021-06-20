@@ -264,6 +264,10 @@ void VulkanApplication::createCommandBuffers()
         throw std::runtime_error("cannot allocate command buffers!");
 }
 
+// So this part will need to be a part of main render engine,
+// as it has to deal with a loop across all Renderables which will contain all meshes
+// and we need to invoke a draw call on every one of those, rebinding vertex buffer offsets
+// (or whole vertex buffers for now xDDD)
 void VulkanApplication::recordCommandBuffers()
 {
     for(size_t i = 0; i < commandBuffers.size(); ++i)
@@ -302,11 +306,11 @@ void VulkanApplication::recordCommandBuffers()
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipeline.getHandle());
 
-        VkDeviceSize offset = 0;
-	    vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &triangle.getBufferInfo().memory_buffer, &offset);
+	    vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, triangle.getVkInfo().getpVkBuffer(),
+                triangle.getVkInfo().getpOffset());
 
 
-        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0); // 3 vertices, 1 instance,
+        vkCmdDraw(commandBuffers[i], triangle.vertexCount(), 1, 0, 0); // 3 vertices, 1 instance,
                                                   // offset of vertex, offset of instance
 
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -341,6 +345,15 @@ void VulkanApplication::createSyncObjects()
             throw std::runtime_error("failed to create semaphores!");
     }
 }
+//
+// poligon
+struct UniformTest
+{
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+    alignas(16) float time;
+};
 
 void VulkanApplication::initVulkan()
 {
@@ -362,6 +375,34 @@ void VulkanApplication::initVulkan()
 
     triangle = loadTriangleAsMesh(vmaAllocator);
 
+    // poligon
+    // lets try to allocate a uniform buffer object.
+    UniformTest ubo_data{
+        .model = glm::mat4{1},
+        .view = glm::mat4(2),
+        .proj = glm::mat4{3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},
+        .time = 69.420
+    };
+
+    memory::VmaVulkanBuffer ubo
+        {vmaAllocator, &ubo_data, sizeof(ubo_data),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // buffer usage flags
+        VMA_MEMORY_USAGE_CPU_TO_GPU}; // memory usage flags
+
+    // should overwrite first matrix by ones.
+    glm::mat4 fresh(30);
+    memcpy(ubo.mem(), &fresh, sizeof(fresh));
+
+    std::cout << "printin memory after buffer copy: " << std::endl;
+
+    float* data = static_cast<float*>(ubo.mem());
+    for(size_t i = 0; i < (ubo.getSizeBytes() / sizeof(float)); ++i)
+    {
+        std::cout << data[i] << ", ";
+    }
+
+    std::cout << std::endl;
+
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
 
     createRenderPass();
@@ -369,6 +410,7 @@ void VulkanApplication::initVulkan()
 
     createFramebuffers();
 
+    std::cout << "after framebuffer creation stage" << std::endl;
     createCommandPool();
     createCommandBuffers();
     recordCommandBuffers();
@@ -405,6 +447,7 @@ void VulkanApplication::drawFrame()
     // swapchain image is not used by another frame, and if so, we have to stall.
     if(imagesInFlight[imageIndex] != VK_NULL_HANDLE)
         vkWaitForFences(vkDevice.getDevice(), 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+
     imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
     // The inFlightFences[currentFrame] is lit now.
@@ -437,11 +480,10 @@ void VulkanApplication::drawFrame()
         return submitInfo;
     }();
 
-    // then we reset the fence, so we can stall
+    // Reset operation makes fence block! Not the other way around.
     vkResetFences(vkDevice.getDevice(), 1, &inFlightFences[currentFrame]);
 
-    // dont we have a race condition there? Yes but this is not multithreaded.
-    // easy.
+    // dont we have a race condition right there? Yes but this is not multithreaded. (yet!)
     if(vkQueueSubmit(vkDevice.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame])
             != VK_SUCCESS)
         throw std::runtime_error("Cannot submit to queue");
@@ -493,8 +535,6 @@ void VulkanApplication::cleanup()
 	glfwDestroyWindow(window);
 	glfwTerminate();
 }
-
-
 
 } // namespace render
 
