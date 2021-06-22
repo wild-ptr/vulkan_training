@@ -352,82 +352,11 @@ void VulkanApplication::initVulkan()
 	vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
 
     triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
-
-
-    // PLAYGROUND ZONE -----------------------
-
-    // lets try to allocate a uniform buffer object.
-    UniformTest ubo_data{
-        .model = glm::mat4{1},
-        .view = glm::mat4(2),
-        .proj = glm::mat4{3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},
-        .time = 69.420
-    };
-
-    memory::VmaVulkanBuffer ubo
-        {vkDevice.getVmaAllocator(), &ubo_data, sizeof(ubo_data),
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // buffer usage flags
-        VMA_MEMORY_USAGE_CPU_TO_GPU}; // memory usage flags
-
-    // should overwrite first matrix by ones.
-    glm::mat4 fresh(30);
-    memcpy(ubo.mem(), &fresh, sizeof(fresh));
-
-    std::cout << "printin memory after buffer copy: " << std::endl;
-
-    float* data = static_cast<float*>(ubo.mem());
-    for(size_t i = 0; i < (ubo.getSizeBytes() / sizeof(float)); ++i)
-    {
-        std::cout << data[i] << ", ";
-    }
-
-
-
-    std::cout << std::endl;
-
-    // metoda nowsza mniej dla zwierzat xD
-    memory::UniformData<UniformTest, 15> uboNew(vkDevice.getVmaAllocator());
-    uboNew.data()->proj = glm::mat4{3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3};
-    uboNew.update();
-
-    std::cout << "Printin with new method of swag" << std::endl;
-    for(int index = 0; index < 15; ++ index)
-    {
-        for(int i = 0; i < 4; ++i)
-        {
-            for(int j = 0; j < 4; ++j)
-                std::cout << uboNew[index].proj[i][j] << ", ";
-
-            std::cout << std::endl;
-        }
-
-        std::cout << std::endl;
-    }
-
-    std::cout << "cpu side state:" << std::endl;
-    for(int index = 0; index < 15; ++ index)
-    {
-        for(int i = 0; i < 4; ++i)
-        {
-            for(int j = 0; j < 4; ++j)
-                std::cout << uboNew.data()[index].proj[i][j] << ", ";
-
-            std::cout << std::endl;
-        }
-
-        std::cout << std::endl;
-    }
-
-    std::cout << std::endl;
-    // PLAYGROUND ZONE END -----------------------
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
 
     createRenderPass();
     createGraphicsPipeline();
-
     createFramebuffers();
-
-    std::cout << "after framebuffer creation stage" << std::endl;
     createCommandPool();
     createCommandBuffers();
     recordCommandBuffers();
