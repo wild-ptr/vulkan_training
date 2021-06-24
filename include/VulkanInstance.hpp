@@ -17,6 +17,7 @@ private:
 	bool validationLayersEnabled;
 	VkInstance vkInstance;
 	VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
+    VkDebugReportCallbackEXT debugCallback = VK_NULL_HANDLE;
 };
 
 } // namespace render

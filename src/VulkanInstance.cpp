@@ -2,6 +2,7 @@
 #include "Logger.hpp"
 #include <vector>
 #include <cstring>
+#include "VulkanMacros.hpp"
 
 namespace
 {
@@ -15,7 +16,10 @@ std::vector<const char*> getRequiredExtensions(bool enableValidationLayers)
 	std::vector<const char*> extensions{glfwExtensions, glfwExtensions + glfwExtensionsCount};
 
 	if (enableValidationLayers)
+    {
 		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); // this macro expands to string.
+        extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+    }
 
 	return extensions;
 }
@@ -106,6 +110,25 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugLayerCallback(
     return VK_FALSE;
 }
 
+VkResult CreateDebugReportCallbackEXT(
+        VkInstance instance,
+        const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
+        const VkAllocationCallbacks*                pAllocator,
+        VkDebugReportCallbackEXT*                   pCallback)
+{
+    auto func = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(instance,
+                                                    "vkCreateDebugReportCallbackEXT");
+
+    if (func != nullptr)
+	{
+        return func(instance, pCreateInfo, pAllocator, pCallback);
+    }
+	else
+	{
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
 // Since debug utils is an extension, we have to manually load address to create/destroy debug messenger
 VkResult CreateDebugUtilsMessengerEXT(
 		VkInstance instance,
@@ -175,6 +198,44 @@ VkDebugUtilsMessengerEXT setupDebugMessenger(VkInstance instance, bool enableVal
 
 	return debugMessenger;
 }
+
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugRaportCallback(
+    VkDebugReportFlagsEXT                       flags,
+    VkDebugReportObjectTypeEXT                  objectType,
+    uint64_t                                    object,
+    size_t                                      location,
+    int32_t                                     messageCode,
+    const char*                                 pLayerPrefix,
+    const char*                                 pMessage,
+    void*                                       pUserData)
+{
+    dbgValidLayer << "Object type: " << objectType << " layer prefix: " << pLayerPrefix << NEWL
+        << "message: " << pMessage;
+
+    std::cout << std::endl;
+
+    return VK_FALSE;
+}
+
+
+VkDebugReportCallbackEXT setupDebugCallback(VkInstance instance)
+{
+    VkDebugReportCallbackCreateInfoEXT createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+        createInfo.flags =    VK_DEBUG_REPORT_WARNING_BIT_EXT |
+                              VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+                              VK_DEBUG_REPORT_ERROR_BIT_EXT |
+                              VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+
+        createInfo.pfnCallback = (PFN_vkDebugReportCallbackEXT) debugRaportCallback;
+        createInfo.pUserData = nullptr;
+
+    VkDebugReportCallbackEXT ret = VK_NULL_HANDLE;
+    VK_CHECK(CreateDebugReportCallbackEXT(instance, &createInfo, nullptr, &ret));
+    return ret;
+}
+
 } // anon namespace
 
 
@@ -189,7 +250,10 @@ VulkanInstance::VulkanInstance(bool debugFlag)
 	, vkInstance(createInstance(validationLayersEnabled))
 {
 	if(validationLayersEnabled)
+    {
 		debugMessenger = setupDebugMessenger(vkInstance, validationLayersEnabled);
+        //debugCallback = setupDebugCallback(vkInstance); // It seems it gives no particulary interesting information.
+    }
 
 	dbgI << "VkInstance created. Debug mode: " << std::boolalpha << validationLayersEnabled << NEWL;
 	std::cout << "instance handle: " << (uint64_t)vkInstance << std::endl;

@@ -70,10 +70,12 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
 	{
 		VkImageCreateInfo imgCi{};
 		imgCi.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+
+		imgCi.imageType = VK_IMAGE_TYPE_2D;
 		imgCi.format = ci.format;
 		imgCi.extent.width = ci.width;
 		imgCi.extent.height = ci.height;
-		imgCi.extent.depth = 0;
+		imgCi.extent.depth = 1;
 		imgCi.mipLevels = ci.mipLevels;
 		imgCi.arrayLayers = ci.layerCount;
 		imgCi.samples = ci.imageSampleCount;
@@ -100,6 +102,7 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
 	const auto imageViewCi = [&ci, &imageViewSubresourceRange, aspectMask, this]()
 	{
 		VkImageViewCreateInfo ivci{};
+        ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		ivci.viewType = (ci.layerCount == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		ivci.format = ci.format;
 		ivci.subresourceRange = imageViewSubresourceRange;

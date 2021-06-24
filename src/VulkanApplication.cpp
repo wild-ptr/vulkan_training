@@ -15,6 +15,7 @@
 #include "Vertex.hpp"
 #include "TriangleMesh.hpp"
 #include "UniformData.hpp"
+#include "VulkanFramebuffer.hpp"
 
 namespace
 {
@@ -353,6 +354,20 @@ void VulkanApplication::initVulkan()
 
     triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
+
+
+    memory::VulkanImageCreateInfo inf =
+    {
+        .width = 800,
+        .height = 600,
+        .layerCount = 1,
+        .mipLevels = 1,
+        .format = VK_FORMAT_R8G8B8_UNORM,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+    };
+
+    // just to test new framebuffer module.
+    auto framebuf = VulkanFramebuffer(vkDevice.getVmaAllocator(), {inf}, 3);
 
     createRenderPass();
     createGraphicsPipeline();
