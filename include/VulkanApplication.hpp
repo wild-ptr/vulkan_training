@@ -9,6 +9,7 @@
 #include "VulkanInstance.hpp"
 #include "VulkanSwapchain.hpp"
 #include "TriangleMesh.hpp"
+#include "VulkanFramebuffer.hpp"
 
 namespace render
 {
@@ -28,6 +29,7 @@ private:
     void createGraphicsPipeline();
     void createRenderPass();
     void createFramebuffers();
+    void createOffscreenFramebuffer();
     void createCommandPool();
     void createCommandBuffers();
     void recordCommandBuffers();
@@ -46,6 +48,8 @@ private:
 	VulkanInstance vkInstance;
 	VulkanDevice vkDevice;
     VulkanSwapchain vkSwapchain;
+
+    //VulkanFramebuffer offscreenFramebuffer;
 
     Mesh triangle;
 

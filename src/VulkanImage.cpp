@@ -88,7 +88,7 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
 	VmaAllocationCreateInfo vmaAllocInfo{ .usage = VMA_MEMORY_USAGE_GPU_ONLY };
 	VK_CHECK(vmaCreateImage(allocator, &imageCi, &vmaAllocInfo, &vkImage, &allocation, &allocationInfo));
 
-	const auto imageViewSubresourceRange = [aspectMask, &ci]()
+	subresourceRange = [aspectMask, &ci]()
 	{
 		VkImageSubresourceRange srr{};
 		srr.aspectMask = aspectMask;
@@ -99,13 +99,13 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
 	}();
 
 	// Implicitly inherits usage from VkImage
-	const auto imageViewCi = [&ci, &imageViewSubresourceRange, aspectMask, this]()
+	const auto imageViewCi = [&ci, aspectMask, this]()
 	{
 		VkImageViewCreateInfo ivci{};
         ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		ivci.viewType = (ci.layerCount == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		ivci.format = ci.format;
-		ivci.subresourceRange = imageViewSubresourceRange;
+		ivci.subresourceRange = subresourceRange;
 		ivci.subresourceRange.aspectMask = hasDepth() ? VK_IMAGE_ASPECT_DEPTH_BIT : aspectMask;
 		ivci.image = vkImage;
 

@@ -224,7 +224,7 @@ Pipeline(const std::vector<Shader>& shaders,
 
         pci.layout = pipelineLayout;
         pci.renderPass = renderPass;
-        pci.subpass = 0; // so i can only choose one?
+        pci.subpass = 0; // so i can only choose one? Makes sense for one subpass run to be one pipeline.
 
         return pci;
     }();

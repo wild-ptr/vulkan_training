@@ -27,6 +27,11 @@ public:
 	bool hasStencil();
 	bool hasDepthOrStencil();
 
+    VkImage getImage() { return vkImage; }
+    VkImageView getImageView() { return vkImageView; }
+    VkFormat getImageFormat() { return format; }
+    VkImageSubresourceRange getSubresourceRange() { return subresourceRange; }
+
 private:
 	VmaAllocator allocator;
 	VmaAllocation allocation;

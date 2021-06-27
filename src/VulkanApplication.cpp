@@ -213,6 +213,26 @@ void VulkanApplication::createFramebuffers()
     }
 }
 
+void VulkanApplication::createOffscreenFramebuffer()
+{
+    std::vector<memory::VulkanImageCreateInfo> attachments;
+
+    memory::VulkanImageCreateInfo inf =
+    {
+        .width = 800,
+        .height = 600,
+        .layerCount = 1,
+        .mipLevels = 1,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+    };
+
+    attachments.push_back(inf);
+
+    // just to test new framebuffer module.
+    //offscreenFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), {inf}, 3);
+}
+
 void VulkanApplication::createCommandPool()
 {
     const auto poolInfo = [this]
@@ -252,7 +272,6 @@ void VulkanApplication::createCommandBuffers()
 // So this part will need to be a part of main render engine,
 // as it has to deal with a loop across all Renderables which will contain all meshes
 // and we need to invoke a draw call on every one of those, rebinding vertex buffer offsets
-// (or whole vertex buffers for now xDDD)
 void VulkanApplication::recordCommandBuffers()
 {
     for(size_t i = 0; i < commandBuffers.size(); ++i)
@@ -288,6 +307,9 @@ void VulkanApplication::recordCommandBuffers()
         }();
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        // those 3 calls + also descriptor set bindings are going to be done in loop for all the
+        // different renderables
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipeline.getHandle());
 
@@ -356,14 +378,18 @@ void VulkanApplication::initVulkan()
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
 
 
-    memory::VulkanImageCreateInfo inf =
+    FramebufferAttachmentInfo inf =
     {
-        .width = 800,
-        .height = 600,
-        .layerCount = 1,
-        .mipLevels = 1,
-        .format = VK_FORMAT_R8G8B8_UNORM,
-        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+        .ci = {
+            .width = 800,
+            .height = 600,
+            .layerCount = 1,
+            .mipLevels = 1,
+            .format = VK_FORMAT_R8G8B8A8_UNORM,
+            .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+        },
+
+        .type = EFramebufferAttachmentType::ATTACHMENT_COLOR
     };
 
     // just to test new framebuffer module.
