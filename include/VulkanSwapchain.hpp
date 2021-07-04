@@ -19,6 +19,12 @@ public:
     VkSwapchainKHR getSwapchain() const { return swapChain; }
     const std::vector<VkImage>& getSwapchainImages() const { return swapChainImages; }
     const std::vector<VkImageView>& getSwapchainImageViews() const { return swapChainImageViews; }
+    size_t size() const { return swapChainImages.size(); }
+
+    const VkImageSubresourceRange& getSwapchainSubresourceRange() const
+    {
+        return swapChainSubresourceRange;
+    }
 
 private:
     VkFormat swapChainImageFormat;
@@ -27,6 +33,7 @@ private:
     VkSwapchainKHR swapChain;
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;
+    VkImageSubresourceRange swapChainSubresourceRange;
 };
 
 } // namespace render

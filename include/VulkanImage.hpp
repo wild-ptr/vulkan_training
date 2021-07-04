@@ -22,6 +22,9 @@ class VulkanImage
 {
 public:
 	VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator);
+
+    // ctor for wrapping previously allocated images.
+    VulkanImage(VkImage image, VkImageView imageView, VkFormat format, VkImageSubresourceRange range);
 	//~VulkanImage(); // @TODO
 	bool hasDepth();
 	bool hasStencil();
@@ -33,9 +36,12 @@ public:
     VkImageSubresourceRange getSubresourceRange() { return subresourceRange; }
 
 private:
-	VmaAllocator allocator;
-	VmaAllocation allocation;
-	VmaAllocationInfo allocationInfo;
+    // will be used to change dtor behaviour to noop
+    bool wrappedAllocatedImage {false};
+
+	VmaAllocator allocator {VK_NULL_HANDLE};
+	VmaAllocation allocation {VK_NULL_HANDLE};
+	VmaAllocationInfo allocationInfo {};
 
 	VkImage vkImage;
 	VkImageView vkImageView;

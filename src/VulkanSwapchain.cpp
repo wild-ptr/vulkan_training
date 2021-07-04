@@ -217,6 +217,19 @@ std::vector<VkImageView> createSwapchainImageViews(
     return swapChainImageViews;
 }
 
+VkImageSubresourceRange createSwapchainSubresourceRange()
+{
+	return []()
+	{
+		VkImageSubresourceRange srr{};
+		srr.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		srr.levelCount = 1;
+		srr.layerCount = 1;
+
+		return srr;
+	}();
+}
+
 } // anon namespace
 
 namespace render
@@ -229,8 +242,11 @@ VulkanSwapchain::VulkanSwapchain(
     createSwapChainAndImageFormatExtent(device, surface, window,
             this->swapChain, this->swapChainImageFormat, this->swapChainExtent);
 
+
+
     swapChainImages = createSwapchainImages(device, swapChain);
     swapChainImageViews = createSwapchainImageViews(device, swapChainImageFormat, swapChainImages);
+    swapChainSubresourceRange = createSwapchainSubresourceRange();
 }
 
 } // namespace render

@@ -48,7 +48,7 @@ private:
 	VulkanInstance vkInstance;
 	VulkanDevice vkDevice;
     VulkanSwapchain vkSwapchain;
-
+    VulkanFramebuffer vkPresentFramebuffer;
     //VulkanFramebuffer offscreenFramebuffer;
 
     Mesh triangle;

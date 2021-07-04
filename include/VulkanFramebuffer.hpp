@@ -2,6 +2,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include "VulkanImage.hpp"
+#include "VulkanSwapchain.hpp"
 #include "vk_mem_alloc.h"
 
 namespace render
@@ -14,7 +15,8 @@ enum class EFramebufferAttachmentType
     ATTACHMENT_OFFSCREEN_ALBEDO,
     ATTACHMENT_OFFSCREEN_NORMALS,
     ATTACHMENT_OFFSCREEN_POSITION,
-    ATTACHMENT_OFFSCREEN_TANGENT
+    ATTACHMENT_OFFSCREEN_TANGENT,
+    ATTACHMENT_SWAPCHAIN_PRESENT_COLOR,
 };
 
 struct FramebufferAttachmentInfo
@@ -26,20 +28,28 @@ struct FramebufferAttachmentInfo
 class VulkanFramebuffer
 {
 public:
-	// usually we will want as many as we have swapchain images.
 	VulkanFramebuffer(
 			VmaAllocator allocator,
 			std::vector<FramebufferAttachmentInfo> ci,
 			size_t numOfFramebuffers);
 
-	VkFramebuffer& operator[](size_t i)
-	{
-		return framebuffers[i].vkFramebuffer;
-	}
+    // this ctor is used to create present framebuffers, one per swapchain.
+    // Implicitly creates a depth attachment. Per swapchain image now but this can change in the
+    // future, as all we need is a single depth attachment.
+    VulkanFramebuffer(
+            VmaAllocator allocator,
+            const VulkanSwapchain& swapchain,
+            bool createDepthAttachment);
 
     VkAttachmentDescription getAttachmentDescription(EFramebufferAttachmentType type);
     VkRenderPass getRenderPass() { return renderPass; }
 
+    size_t size() { return framebuffers.size(); }
+
+	VkFramebuffer& operator[](size_t i)
+	{
+		return framebuffers[i].vkFramebuffer;
+	}
 
 private:
     void createRenderPass();

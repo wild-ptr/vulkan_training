@@ -373,10 +373,9 @@ void VulkanApplication::initVulkan()
 	vkInstance = VkInstance(enableValidationLayers);
     createSurface();
 	vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
-
     triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
-
+    vkPresentFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), vkSwapchain, false);
 
     FramebufferAttachmentInfo inf =
     {
@@ -396,8 +395,8 @@ void VulkanApplication::initVulkan()
     auto framebuf = VulkanFramebuffer(vkDevice.getVmaAllocator(), {inf}, 3);
 
     createRenderPass();
-    createGraphicsPipeline();
     createFramebuffers();
+    createGraphicsPipeline();
     createCommandPool();
     createCommandBuffers();
     recordCommandBuffers();

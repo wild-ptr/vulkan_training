@@ -5,6 +5,57 @@
 
 namespace render
 {
+
+// this creates presentation framebuffers, one per swapchain image.
+// Doesnt work yet as we are getting validation layer errors about layercount from subresource range.
+VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, const VulkanSwapchain& swapchain, bool createDepthAttachment)
+    : allocator(allocator)
+{
+    width = swapchain.getSwapchainExtent().width;
+    height = swapchain.getSwapchainExtent().height;
+
+    // fill in attachment infos.
+    AttachmentInfo information = {
+	.description = {
+		.format = swapchain.getSwapchainImageFormat(),
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+		},
+    .type = EFramebufferAttachmentType::ATTACHMENT_SWAPCHAIN_PRESENT_COLOR
+	};
+
+    attachmentsInfo.emplace_back(std::move(information));
+
+    auto swapchainImagesSize = swapchain.size();
+    const auto& swapchainImages = swapchain.getSwapchainImages();
+    const auto& swapchainImageViews = swapchain.getSwapchainImageViews();
+    auto format = swapchain.getSwapchainImageFormat();
+    const auto& subresourceRange = swapchain.getSwapchainSubresourceRange();
+
+    for(size_t i = 0; i < swapchainImagesSize; ++i)
+    {
+        Framebuffer fb = {
+            .attachments = {
+                memory::VulkanImage(
+                        swapchainImages[i],
+                        swapchainImageViews[i],
+                        format,
+                        subresourceRange)
+            }
+        };
+
+        framebuffers.emplace_back(std::move(fb));
+    }
+
+    createRenderPass();
+    createFramebuffer();
+}
+
 VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, std::vector<FramebufferAttachmentInfo> ci, size_t numOfFramebuffers)
     : allocator(allocator)
 {

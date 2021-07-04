@@ -119,4 +119,18 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
 }
 
 
+// just a wrapper for externally created vkImages, like we get from the swapchain
+VulkanImage::VulkanImage(
+        VkImage image,
+        VkImageView imageView,
+        VkFormat format,
+        VkImageSubresourceRange range)
+    : vkImage(image)
+    , vkImageView(imageView)
+    , format(format)
+    , subresourceRange(range)
+    , wrappedAllocatedImage(true)
+{
+}
+
 } // namespace render::memory
