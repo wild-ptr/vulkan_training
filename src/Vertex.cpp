@@ -1,14 +1,12 @@
 #include "Vertex.hpp"
-#include <memory>
 #include <cstddef>
+#include <memory>
 
-namespace render
-{
+namespace render {
 
 RF_VULKAN_VERTEX_DESCRIPTORS_DEFINE_BINDING(Vertex,
-    []()
-    {
-        VkVertexInputBindingDescription bindingDescription{};
+    []() {
+        VkVertexInputBindingDescription bindingDescription {};
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(Vertex);
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
@@ -16,8 +14,7 @@ RF_VULKAN_VERTEX_DESCRIPTORS_DEFINE_BINDING(Vertex,
     }());
 
 RF_VULKAN_VERTEX_DESCRIPTORS_DEFINE_ATTRIBUTES(Vertex,
-    []()
-    {
+    []() {
         AttributeDescriptors<4> desc;
 
         desc[0].binding = 0;

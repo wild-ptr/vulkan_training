@@ -2,20 +2,17 @@
 #include "VulkanMacros.hpp"
 #include <cstring>
 
-namespace
-{
-
+namespace {
 
 } // anon namespace
 
-namespace render
-{
+namespace render {
 
 Mesh::Mesh(const std::vector<Vertex>& mesh_data, VmaAllocator allocator)
     : allocator(allocator)
     , vertices(mesh_data.size())
     , vertex_buffer(allocator, mesh_data,
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
+          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
 {
 }
 
@@ -23,7 +20,7 @@ Mesh::Mesh(std::vector<Vertex>&& mesh_data, VmaAllocator allocator)
     : allocator(allocator)
     , vertices(mesh_data.size())
     , vertex_buffer(allocator, mesh_data,
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
+          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
 {
 }
 
