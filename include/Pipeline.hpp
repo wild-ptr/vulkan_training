@@ -26,6 +26,10 @@ struct vertex_input_tag
 
 inline static auto noInputTag{vertex_input_tag<PipelineNoInput>{}};
 
+
+// All of the pipelineLayout is created based on vertex shader right now.
+// @TODO change this in the future to support descriptors that bind only to
+// a specific pipeline.
 template<typename InputVertexTag = decltype(noInputTag),
          typename InputVertexFormat = typename InputVertexTag::type>
 Pipeline(const std::vector<Shader>& shaders,
@@ -65,7 +69,7 @@ Pipeline(const std::vector<Shader>& shaders,
     else
     {
         dbgI << "Creating meaningful vertexInputInfo" << NEWL;
-        vertexInputInfo = []
+        vertexInputInfo = []()
         {
             VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
             vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -84,6 +88,22 @@ Pipeline(const std::vector<Shader>& shaders,
             return vertexInputInfo;
         }();
     }
+
+    // Right now all set layouts are defined by vertex shader.
+    auto it = std::find_if(std::cbegin(shaders), std::end(shaders),
+            [](const auto& shader)
+            {
+                return shader.getShaderType() == VK_SHADER_STAGE_VERTEX_BIT;
+            });
+
+    if(it == std::end(shaders))
+    {
+        throw std::runtime_error("Trying to create a Pipeline without vertex shader.");
+    }
+
+    descriptorSetLayouts = it->getReflectedDescriptorSetLayouts();
+
+    createPipelineLayout(*it);
 
     const auto inputAssembly = []
     {
@@ -193,19 +213,6 @@ Pipeline(const std::vector<Shader>& shaders,
         return ds;
     }();
 
-    // This is used to pass uniforms. Empty for now.
-    const auto pipelineLayoutInfo = []
-    {
-        VkPipelineLayoutCreateInfo pli{};
-        // once again can i pass uniform type as a tag?
-        pli.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        return pli;
-    }();
-
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout)
-            != VK_SUCCESS)
-        throw std::runtime_error("Failed to create pipeline layout.");
-
     const auto pipelineInfo = [&]
     {
         VkGraphicsPipelineCreateInfo pci{};
@@ -241,8 +248,12 @@ Pipeline(const std::vector<Shader>& shaders,
     VkPipelineLayout getLayoutHandle() const { return pipelineLayout; }
 
     Pipeline& operator=(Pipeline&&);
+
 private:
+    void createPipelineLayout(const Shader&);
+
     VkPipeline pipeline{VK_NULL_HANDLE};
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkDevice device;
 };

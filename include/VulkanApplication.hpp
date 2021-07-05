@@ -27,8 +27,6 @@ private:
 	void cleanup(); // no RAII for now.
     void createSurface();
     void createGraphicsPipeline();
-    void createRenderPass();
-    void createFramebuffers();
     void createOffscreenFramebuffer();
     void createCommandPool();
     void createCommandBuffers();
@@ -48,17 +46,13 @@ private:
 	VulkanInstance vkInstance;
 	VulkanDevice vkDevice;
     VulkanSwapchain vkSwapchain;
-    VulkanFramebuffer vkPresentFramebuffer;
+    VulkanFramebuffer vkSwapchainFramebuffer;
     //VulkanFramebuffer offscreenFramebuffer;
 
     Mesh triangle;
 
-    std::vector<VkFramebuffer> swapChainFramebuffers;
+    //std::vector<VkFramebuffer> swapChainFramebuffers;
 
-
-    VkRenderPass renderPass;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
     Pipeline pipeline;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;

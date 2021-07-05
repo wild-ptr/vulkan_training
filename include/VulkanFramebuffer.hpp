@@ -41,6 +41,8 @@ public:
             const VulkanSwapchain& swapchain,
             bool createDepthAttachment);
 
+    VulkanFramebuffer() = default;
+
     VkAttachmentDescription getAttachmentDescription(EFramebufferAttachmentType type);
     VkRenderPass getRenderPass() { return renderPass; }
 

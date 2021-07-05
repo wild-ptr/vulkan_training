@@ -8,6 +8,14 @@ layout (location = 3) in vec2 vTexCoords;
 
 layout (location = 0) out vec3 fragColor;
 
+// test one
+layout(binding = 0) uniform UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 proj;
+} ubo;
+
+
 void main()
 {
     gl_Position = vec4(vPosition, 1.0);

@@ -1,7 +1,7 @@
+#include <algorithm>
 #include "Logger.hpp"
 #include "Pipeline.hpp"
-#include <algorithm>
-#include <stdexcept>
+#include "VulkanMacros.hpp"
 
 namespace render
 {
@@ -31,6 +31,22 @@ Pipeline& Pipeline::operator=(Pipeline&& rhs)
     rhs.pipeline = VK_NULL_HANDLE;
     rhs.pipelineLayout = VK_NULL_HANDLE;
     return *this;
+}
+
+void Pipeline::createPipelineLayout(const Shader& shader)
+{
+    const auto& descriptorSetLayouts = shader.getReflectedDescriptorSetLayouts();
+
+    const auto pipelineLayoutInfo = [&descriptorSetLayouts]()
+    {
+        VkPipelineLayoutCreateInfo pli{};
+        pli.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pli.setLayoutCount = descriptorSetLayouts.size();
+        pli.pSetLayouts = descriptorSetLayouts.data();
+        return pli;
+    }();
+
+    VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout));
 }
 
 } // namespace render

@@ -86,131 +86,9 @@ void VulkanApplication::createGraphicsPipeline()
         Shader{vkDevice.getDevice(), "shaders/frag.spv", EShaderType::FRAGMENT_SHADER}
     };
 
-    pipeline = Pipeline(shaders, vkSwapchain.getSwapchainExtent(), vkDevice.getDevice(), renderPass,
+    pipeline = Pipeline(shaders, vkSwapchain.getSwapchainExtent(), vkDevice.getDevice(),
+            vkSwapchainFramebuffer.getRenderPass(),
             Pipeline::vertex_input_tag<Vertex>{});
-}
-
-void VulkanApplication::createRenderPass()
-{
-    // so this is kinda our render target, we render to color buffer.
-    const auto colorAttachment = [this]
-    {
-        VkAttachmentDescription ca{}; // DESCRIPTION
-        ca.format = vkSwapchain.getSwapchainImageFormat();
-        ca.samples = VK_SAMPLE_COUNT_1_BIT; // this is used for MSAA.
-
-        ca.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // reset background to black per frame.
-        ca.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // store results to be read later to present.
-
-        ca.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        ca.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
-        ca.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // dont care about previous image layout.
-        ca.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // ready for presentation after render.
-
-        return ca;
-    }();
-
-    // we will create a simple, one subpass run.
-
-    // attachments references are used by subpasses,
-    // so we specify that for subpasses using this reference, we want image
-    // to transition to color optimal layout before rendering using the given subpass.
-    const auto colorAttachmentRef = []
-    {
-        VkAttachmentReference car{}; // REFERENCE TO ATTACHMENT
-        car.attachment = 0;
-        car.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        return car;
-    }(); // so this subpass is rendering to color attachment. Easy enough.
-
-    // Now this is important, we bind fragment shader output to render target there.
-    const auto subpass = [&colorAttachmentRef]
-    {
-        VkSubpassDescription sp{};
-        sp.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        sp.colorAttachmentCount = 1;
-        sp.pColorAttachments = &colorAttachmentRef; // location 0 in our fragshader, since its [1] array
-
-        return sp;
-    }();
-
-    const auto subpassDependency = [this]
-    {
-        VkSubpassDependency sd{};
-        sd.srcSubpass = VK_SUBPASS_EXTERNAL; // implicit subpass before dstSubpass.
-        sd.dstSubpass = 0; // index of subpass
-
-        // The renderpass has two implicit stages, one at the end of the render pass
-        // to transition image into presentation layout, and one at the beginning to
-        // transition newly acquired image to beginning layout.
-        // The renderpass will do this in the very moment we start our pipeline,
-        // and this is too early, as we still havent acquired an image at this point.
-        // So we tell renderpass to wait with memory transitions untill we get to fragment shader,
-        // as then (as we specified with semaphores during submission) image must be available to us.
-        // src - wait on this stage to happen
-        sd.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        sd.srcAccessMask = 0;
-
-        // Color attachment write operation in color attachment stage
-        // should wait for transition before writing.
-        // what should wait on src - in our case attachment writing should wait.
-        sd.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        sd.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-        return sd;
-    }();
-
-    const auto renderPassInfo = [&colorAttachment, &subpassDependency, &subpass]
-    {
-        VkRenderPassCreateInfo rpi{};
-        rpi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        rpi.attachmentCount = 1;
-        rpi.pAttachments = &colorAttachment;
-        rpi.subpassCount = 1;
-        rpi.pSubpasses = &subpass;
-
-        rpi.dependencyCount = 1;
-        rpi.pDependencies = &subpassDependency;
-
-        return rpi;
-    }();
-
-    if (vkCreateRenderPass(vkDevice.getDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
-        throw std::runtime_error("Cannot create render pass!");
-}
-
-// We can actually plug in multiple vkImages into the renderpass right there.
-// Framebuffers depend on renderpass for ceation.
-void VulkanApplication::createFramebuffers()
-{
-    swapChainFramebuffers.resize(vkSwapchain.getSwapchainImageViews().size());
-
-    for(size_t i = 0; i < vkSwapchain.getSwapchainImageViews().size(); ++i)
-    {
-        VkImageView attachments[] = {
-            vkSwapchain.getSwapchainImageViews()[i]
-        };
-
-        const auto framebufferInfo = [&attachments, this]
-        {
-            VkFramebufferCreateInfo fi{};
-            fi.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            fi.renderPass = renderPass;
-            fi.attachmentCount = 1;
-            fi.pAttachments = attachments;
-            fi.width = vkSwapchain.getSwapchainExtent().width;
-            fi.height = vkSwapchain.getSwapchainExtent().height;
-            fi.layers = 1;
-
-            return fi;
-        }();
-
-        if (vkCreateFramebuffer(vkDevice.getDevice(), &framebufferInfo, nullptr, &swapChainFramebuffers[i])
-            != VK_SUCCESS)
-            throw std::runtime_error("Cannot create framebuffers.");
-    }
 }
 
 void VulkanApplication::createOffscreenFramebuffer()
@@ -250,7 +128,7 @@ void VulkanApplication::createCommandPool()
 
 void VulkanApplication::createCommandBuffers()
 {
-    commandBuffers.resize(swapChainFramebuffers.size());
+    commandBuffers.resize(vkSwapchainFramebuffer.size());
 
     const auto allocateInfo = [this]
     {
@@ -260,7 +138,7 @@ void VulkanApplication::createCommandBuffers()
         // Primary buffer - can be executed directly
         // Secondary - cannot be executed directly, but can be called from Primary buffers.
         ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        ai.commandBufferCount = swapChainFramebuffers.size();
+        ai.commandBufferCount = vkSwapchainFramebuffer.size();
 
         return ai;
     }();
@@ -294,8 +172,8 @@ void VulkanApplication::recordCommandBuffers()
         {
             VkRenderPassBeginInfo rbi{};
             rbi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            rbi.renderPass = renderPass;
-            rbi.framebuffer = swapChainFramebuffers[i];
+            rbi.renderPass = vkSwapchainFramebuffer.getRenderPass();
+            rbi.framebuffer = vkSwapchainFramebuffer[i];
 
             rbi.renderArea.offset = {0, 0};
             rbi.renderArea.extent = vkSwapchain.getSwapchainExtent();
@@ -333,7 +211,7 @@ void VulkanApplication::createSyncObjects()
     renderFinishedSemaphores.resize(maxFramesInFlight);
 
     inFlightFences.resize(maxFramesInFlight);
-    imagesInFlight.resize(swapChainFramebuffers.size(), VK_NULL_HANDLE);
+    imagesInFlight.resize(vkSwapchainFramebuffer.size(), VK_NULL_HANDLE);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -375,7 +253,7 @@ void VulkanApplication::initVulkan()
 	vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
     triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
-    vkPresentFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), vkSwapchain, false);
+    vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), vkSwapchain, false);
 
     FramebufferAttachmentInfo inf =
     {
@@ -394,8 +272,6 @@ void VulkanApplication::initVulkan()
     // just to test new framebuffer module.
     auto framebuf = VulkanFramebuffer(vkDevice.getVmaAllocator(), {inf}, 3);
 
-    createRenderPass();
-    createFramebuffers();
     createGraphicsPipeline();
     createCommandPool();
     createCommandBuffers();
@@ -507,10 +383,10 @@ void VulkanApplication::cleanup()
 
     vkDestroyCommandPool(vkDevice.getDevice(), commandPool, nullptr);
 
-    for(auto&& framebuffer : swapChainFramebuffers)
-        vkDestroyFramebuffer(vkDevice.getDevice(), framebuffer, nullptr);
+    //for(auto&& framebuffer : swapChainFramebuffers)
+    //    vkDestroyFramebuffer(vkDevice.getDevice(), framebuffer, nullptr);
 
-    vkDestroyRenderPass(vkDevice.getDevice(), renderPass, nullptr);
+    //vkDestroyRenderPass(vkDevice.getDevice(), renderPass, nullptr);
 
     for (auto&& image : vkSwapchain.getSwapchainImageViews())
         vkDestroyImageView(vkDevice.getDevice(), image, nullptr);
