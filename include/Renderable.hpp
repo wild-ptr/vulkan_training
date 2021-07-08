@@ -11,6 +11,7 @@ namespace render {
 
 struct RenderableUbo {
     glm::mat4 model;
+    float times;
 };
 
 /* This class will represent a renderable entity,
@@ -19,8 +20,8 @@ struct RenderableUbo {
 class Renderable {
 public:
     Renderable(const VulkanDevice& device, std::vector<Mesh> meshes);
-    void updateUniforms(const RenderableUbo&, size_t bufferIdx);
-    void cmdBindSetsDrawRenderable();
+    void updateUniforms(RenderableUbo, size_t bufferIdx);
+    void cmdBindSetsDrawMeshes(VkCommandBuffer, uint32_t frameIndex);
 
 private:
     void createDescriptorPool();

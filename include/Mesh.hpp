@@ -18,6 +18,7 @@ public:
 
     const memory::VmaVulkanBuffer& getVkInfo() const { return vertex_buffer; }
     size_t vertexCount() const { return vertices; }
+    void cmdDraw(VkCommandBuffer);
 
 private:
     VmaAllocator allocator;

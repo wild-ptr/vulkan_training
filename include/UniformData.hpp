@@ -49,10 +49,11 @@ public:
 
     void update(size_t index)
     {
-        static_assert(index < ubo_arr.size());
+        assert(index < N);
         auto offset = sizeof(T) * index;
-        std::byte* array_data = (std::byte*)ubo_arr.data() + offset;
-        ubo_buffer.copyToBuffer(array_data, offset, sizeof(T));
+        std::byte* array_mem = (std::byte*)ubo_arr.data() + offset;
+
+        ubo_buffer.copyToBuffer(array_mem, offset, sizeof(T));
     }
 
     const VkDescriptorBufferInfo& getDescriptorWholeBuffer() const

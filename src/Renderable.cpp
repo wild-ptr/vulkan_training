@@ -62,4 +62,29 @@ void Renderable::generateUboDescriptorSets()
     }
 }
 
+void Renderable::updateUniforms(RenderableUbo ubo, size_t bufferIdx)
+{
+    auto& uniformData = *uniforms;
+    uniformData[bufferIdx] = std::move(ubo);
+    uniformData.update(bufferIdx);
+}
+
+void Renderable::cmdBindSetsDrawMeshes(VkCommandBuffer commandBuffer, uint32_t frameIndex)
+{
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getHandle());
+
+    for(auto& mesh : meshes)
+    {
+        mesh.cmdDraw(commandBuffer);
+    }
+
+    vkCmdBindDescriptorSets(
+            commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipeline->getLayoutHandle(),
+            1, 1, // first set, one set
+            &descriptorSets[frameIndex],
+            0, 0); // dynamic offsets junk
+}
+
 } // namespace render

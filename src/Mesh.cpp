@@ -31,4 +31,9 @@ Mesh::~Mesh()
     //    vmaDestroyBuffer(allocator, vertex_buffer.memory_buffer, vertex_buffer.allocation);
 }
 
+void Mesh::cmdDraw(VkCommandBuffer commandBuffer)
+{
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, getVkInfo().getpVkBuffer(), getVkInfo().getpOffset());
+    vkCmdDraw(commandBuffer, vertexCount(), 1, 0, 0);
+}
 } // namespace render
