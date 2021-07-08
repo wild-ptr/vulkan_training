@@ -3,12 +3,10 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 
-namespace render
-{
+namespace render {
 class VulkanDevice;
 
-class VulkanSwapchain
-{
+class VulkanSwapchain {
 public:
     VulkanSwapchain() = default;
     VulkanSwapchain(const VulkanDevice& device, VkSurfaceKHR surface, GLFWwindow* window);

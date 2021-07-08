@@ -1,16 +1,13 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <string>
 #include <memory>
+#include <string>
 #include <vector>
 
+namespace render {
 
-namespace render
-{
-
-enum class EShaderType
-{
+enum class EShaderType {
     VERTEX_SHADER,
     FRAGMENT_SHADER,
 };
@@ -21,11 +18,10 @@ struct DescriptorSetLayoutData {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
 };
 
-class Shader
-{
+class Shader {
 public:
     Shader(VkDevice, const std::string& path, EShaderType);
-    Shader(){};
+    Shader() {};
     Shader(Shader&&);
     Shader(const Shader&) = default;
     ~Shader();
@@ -39,9 +35,9 @@ public:
     const std::vector<DescriptorSetLayoutData>& getSetLayoutData() const;
 
 private:
-    VkPipelineShaderStageCreateInfo createInfo{};
-    std::shared_ptr<VkShaderModule> shaderModule{nullptr};
-    VkDevice device{VK_NULL_HANDLE}; // sadly necessary to create shader.
+    VkPipelineShaderStageCreateInfo createInfo {};
+    std::shared_ptr<VkShaderModule> shaderModule { nullptr };
+    VkDevice device { VK_NULL_HANDLE }; // sadly necessary to create shader.
     VkShaderStageFlagBits shaderType;
     std::vector<DescriptorSetLayoutData> setLayoutData;
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts;

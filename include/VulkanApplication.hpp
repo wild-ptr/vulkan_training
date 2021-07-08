@@ -4,27 +4,24 @@
 #include <optional>
 #include <vector>
 
+#include "Mesh.hpp"
 #include "Pipeline.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanFramebuffer.hpp"
 #include "VulkanInstance.hpp"
 #include "VulkanSwapchain.hpp"
-#include "TriangleMesh.hpp"
-#include "VulkanFramebuffer.hpp"
 
-namespace render
-{
+namespace render {
 
-
-class VulkanApplication
-{
+class VulkanApplication {
 public:
-	void run();
+    void run();
 
 private:
-	void initWindow();
-	void initVulkan();
-	void mainLoop();
-	void cleanup(); // no RAII for now.
+    void initWindow();
+    void initVulkan();
+    void mainLoop();
+    void cleanup(); // no RAII for now.
     void createSurface();
     void createGraphicsPipeline();
     void createOffscreenFramebuffer();
@@ -35,23 +32,20 @@ private:
 
     void drawFrame();
 
-// members
-	const size_t WIDTH = 1024;
-	const size_t HEIGHT = 768;
+    // members
+    const size_t WIDTH = 1024;
+    const size_t HEIGHT = 768;
 
-	GLFWwindow* window;
+    GLFWwindow* window;
     VkSurfaceKHR surface;
 
     VmaAllocator vmaAllocator;
-	VulkanInstance vkInstance;
-	VulkanDevice vkDevice;
+    VulkanInstance vkInstance;
+    VulkanDevice vkDevice;
     VulkanSwapchain vkSwapchain;
     VulkanFramebuffer vkSwapchainFramebuffer;
-    //VulkanFramebuffer offscreenFramebuffer;
 
     Mesh triangle;
-
-    //std::vector<VkFramebuffer> swapChainFramebuffers;
 
     Pipeline pipeline;
     VkCommandPool commandPool;
@@ -61,7 +55,7 @@ private:
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> imagesInFlight;
 
-    size_t currentFrame{0};
+    size_t currentFrame { 0 };
 };
 
 } // namespace vk_main

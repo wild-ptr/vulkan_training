@@ -1,4 +1,4 @@
-#include "TriangleMesh.hpp"
+#include "Mesh.hpp"
 #include "VulkanMacros.hpp"
 #include <cstring>
 

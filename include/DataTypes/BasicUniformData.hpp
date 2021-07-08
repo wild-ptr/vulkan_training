@@ -1,11 +1,10 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
+#include "MemoryStruct.hpp"
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include "MemoryStruct.hpp"
 
-struct BasicUniformData
-{
+struct BasicUniformData {
     RF_VULKAN_UNIFORM_SET_LAYOUT_STATIC_GETTERS
 
     alignas(16) glm::mat4 model;

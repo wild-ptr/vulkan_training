@@ -1,10 +1,8 @@
 #pragma once
 
-namespace render
-{
+namespace render {
 
-class VertexData
-{
+class VertexData {
     VertexData(VkBuffer buffer);
     ~VertexData();
     VkPipelineVertexInputStateCreateInfo getCi();

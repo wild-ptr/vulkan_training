@@ -1,21 +1,19 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 #include "vk_mem_alloc.h"
+#include <GLFW/glfw3.h>
 
 #include "Vertex.hpp"
 #include "VmaVulkanBuffer.hpp"
 #include <vector>
 
-namespace render
-{
+namespace render {
 
-class Mesh
-{
+class Mesh {
 public:
     Mesh(const std::vector<Vertex>& mesh_data, VmaAllocator);
     Mesh(std::vector<Vertex>&& mesh_data, VmaAllocator);
-    Mesh(){};
+    Mesh() {};
     ~Mesh();
 
     const memory::VmaVulkanBuffer& getVkInfo() const { return vertex_buffer; }

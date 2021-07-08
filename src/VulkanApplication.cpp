@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "Logger.hpp"
+#include "Mesh.hpp"
 #include "Shader.hpp"
-#include "TriangleMesh.hpp"
 #include "UniformData.hpp"
 #include "Vertex.hpp"
 #include "VulkanApplication.hpp"
@@ -217,14 +217,6 @@ void VulkanApplication::createSyncObjects()
             throw std::runtime_error("failed to create semaphores!");
     }
 }
-//
-// poligon
-struct UniformTest {
-    alignas(16) glm::mat4 model {};
-    alignas(16) glm::mat4 view {};
-    alignas(16) glm::mat4 proj {};
-    alignas(16) float time;
-};
 
 void VulkanApplication::initVulkan()
 {

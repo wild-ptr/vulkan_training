@@ -1,31 +1,33 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include "vk_mem_alloc.h"
-#include <vector>
-#include <cstring>
 #include "Vertex.hpp"
-#include "VulkanMacros.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanMacros.hpp"
+#include "vk_mem_alloc.h"
+#include <GLFW/glfw3.h>
+#include <cstring>
+#include <vector>
 
-namespace render::memory
-{
+namespace render::memory {
 
 // explicit interface for copyToBuffer
-struct Offset
-{
-    Offset(size_t offset) : offset(offset) {}
+struct Offset {
+    Offset(size_t offset)
+        : offset(offset)
+    {
+    }
     size_t offset;
 };
 
-struct Size
-{
-    Size(size_t size) : size(size) {}
+struct Size {
+    Size(size_t size)
+        : size(size)
+    {
+    }
     size_t size;
 };
 
-class VmaVulkanBuffer
-{
+class VmaVulkanBuffer {
 public:
     // ctor from void* arbitrary data
     VmaVulkanBuffer(
@@ -36,22 +38,22 @@ public:
         const VmaMemoryUsage vma_usage);
 
     // ctor from std::vector<T> data
-    template<typename T>
+    template <typename T>
     VmaVulkanBuffer(
         VmaAllocator allocator,
         const std::vector<T>& data,
         VkBufferUsageFlags vk_flags,
         VmaMemoryUsage vma_usage)
-    : allocator(allocator)
-    , mapped_data(nullptr)
+        : allocator(allocator)
+        , mapped_data(nullptr)
     {
         createMemoryBuffer(data.size() * sizeof(T), vk_flags, vma_usage);
         copyToBuffer(data.data(), data.size() * sizeof(T));
         createBufferDescriptor();
     }
 
-    VmaVulkanBuffer(){};
-    ~VmaVulkanBuffer(){};
+    VmaVulkanBuffer() {};
+    ~VmaVulkanBuffer() {};
 
     const VkBuffer* getpVkBuffer() const { return &vkBuffer; }
     const VkDeviceSize* getpOffset() const { return &allocation_info.offset; }
