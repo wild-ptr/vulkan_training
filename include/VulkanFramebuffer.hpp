@@ -4,6 +4,7 @@
 #include "VulkanSwapchain.hpp"
 #include "vk_mem_alloc.h"
 #include <GLFW/glfw3.h>
+#include <optional>
 
 namespace render {
 
@@ -52,6 +53,8 @@ public:
 private:
     void createRenderPass();
     void createFramebuffer();
+    memory::VulkanImage createDepthAttachment();
+    size_t getAttachmentDescriptionIndex(EFramebufferAttachmentType type);
 
     struct Framebuffer {
         VkFramebuffer vkFramebuffer = VK_NULL_HANDLE;
@@ -67,6 +70,10 @@ private:
     VmaAllocator allocator;
     std::vector<Framebuffer> framebuffers;
     std::vector<AttachmentInfo> attachmentsInfo;
+
+    // depth handled separately for creation (for swapchain only right now), as we always only need one depth attachment.
+    std::optional<memory::VulkanImage> depthAttachment;
+
     VkRenderPass renderPass;
     uint32_t width, height;
 };

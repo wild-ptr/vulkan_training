@@ -5,6 +5,8 @@
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <vector>
+#include "EDescriptorSets.hpp"
+
 
 namespace render {
 
@@ -182,6 +184,20 @@ public:
             ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
             ds.dynamicStateCount = 2;
             ds.pDynamicStates = dynamicStates;
+
+            return ds;
+        }();
+
+        const auto depthStencilState = []
+        {
+            VkPipelineDepthStencilStateCreateInfo ds{};
+            ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            ds.depthTestEnable = VK_TRUE;
+            ds.depthWriteEnable = VK_TRUE;
+            ds.depthCompareOp = VK_COMPARE_OP_LESS;
+            ds.depthBoundsTestEnable = VK_FALSE;
+            ds.stencilTestEnable = VK_FALSE;
+
             return ds;
         }();
 
@@ -196,7 +212,7 @@ public:
             pci.pViewportState = &viewportState;
             pci.pRasterizationState = &rasterizer;
             pci.pMultisampleState = &multisampling;
-            pci.pDepthStencilState = nullptr;
+            pci.pDepthStencilState = &depthStencilState;
             pci.pColorBlendState = &colorBlend;
             pci.pDynamicState = nullptr; // we dont bind dynamic state for now
 
@@ -216,7 +232,7 @@ public:
     ~Pipeline();
     VkPipeline getHandle() const { return pipeline; }
     VkPipelineLayout getLayoutHandle() const { return pipelineLayout; }
-    VkDescriptorSetLayout getSetLayoutIndex(size_t index) { return descriptorSetLayouts[index]; }
+    VkDescriptorSetLayout getDescriptorSetLayout(EDescriptorSets::EDescriptorSets index) { return descriptorSetLayouts[index]; }
 
     Pipeline& operator=(Pipeline&&);
 

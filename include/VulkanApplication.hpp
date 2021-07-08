@@ -46,6 +46,7 @@ private:
     VulkanFramebuffer vkSwapchainFramebuffer;
 
     Mesh triangle;
+    Mesh triangle2;
 
     Pipeline pipeline;
     VkCommandPool commandPool;

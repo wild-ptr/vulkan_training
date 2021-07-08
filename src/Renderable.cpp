@@ -1,4 +1,5 @@
 #include "Renderable.hpp"
+#include "EDescriptorSets.hpp"
 
 namespace render {
 Renderable::Renderable(const VulkanDevice& device, std::vector<Mesh> meshes)
@@ -28,10 +29,7 @@ void Renderable::createDescriptorPool()
 
 void Renderable::generateUboDescriptorSets()
 {
-    // first indice is going to be our per-object set for now.
-    // I need some better handling of this as i hate such magic numbers.
-    // Enumerated set number - name?
-    auto setLayout = pipeline->getSetLayoutIndex(1);
+    auto setLayout = pipeline->getDescriptorSetLayout(EDescriptorSets::BindFrequency_Object);
     std::vector<VkDescriptorSetLayout> setLayouts(consts::maxFramesInFlight, setLayout);
 
     VkDescriptorSetAllocateInfo ai = {
@@ -82,7 +80,7 @@ void Renderable::cmdBindSetsDrawMeshes(VkCommandBuffer commandBuffer, uint32_t f
             commandBuffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipeline->getLayoutHandle(),
-            1, 1, // first set, one set
+            EDescriptorSets::BindFrequency_Object, 1, // object-freq set, one set
             &descriptorSets[frameIndex],
             0, 0); // dynamic offsets junk
 }

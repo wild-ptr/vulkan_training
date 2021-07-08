@@ -24,25 +24,41 @@ VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, const VulkanSwapcha
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR },
+
         .type = EFramebufferAttachmentType::ATTACHMENT_SWAPCHAIN_PRESENT_COLOR
     };
 
     attachmentsInfo.emplace_back(std::move(information));
 
-    auto swapchainImagesSize = swapchain.size();
-    const auto& swapchainImages = swapchain.getSwapchainImages();
-    const auto& swapchainImageViews = swapchain.getSwapchainImageViews();
-    auto format = swapchain.getSwapchainImageFormat();
-    const auto& subresourceRange = swapchain.getSwapchainSubresourceRange();
+    if(createDepthAttachment)
+    {
+        AttachmentInfo information = {
+            .description = {
+                .format = VK_FORMAT_D32_SFLOAT,
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL },
 
-    for (size_t i = 0; i < swapchainImagesSize; ++i) {
+            .type = EFramebufferAttachmentType::ATTACHMENT_DEPTH
+        };
+
+        attachmentsInfo.emplace_back(std::move(information));
+
+        depthAttachment = VulkanFramebuffer::createDepthAttachment();
+    }
+
+    for (size_t i = 0; i < swapchain.size(); ++i) {
         Framebuffer fb = {
             .attachments = {
                 memory::VulkanImage(
-                    swapchainImages[i],
-                    swapchainImageViews[i],
-                    format,
-                    subresourceRange) }
+                    swapchain.getSwapchainImages()[i],
+                    swapchain.getSwapchainImageViews()[i],
+                    swapchain.getSwapchainImageFormat(),
+                    swapchain.getSwapchainSubresourceRange()) }
         };
 
         framebuffers.emplace_back(std::move(fb));
@@ -117,13 +133,16 @@ void VulkanFramebuffer::createRenderPass()
 
     auto& firstFramebufImages = framebuffers[0].attachments;
     for (auto& attachment : firstFramebufImages) {
-        if (attachment.hasDepthOrStencil()) {
+        if (attachment.hasDepthOrStencil())
+        {
             // Only one depth attachment allowed
             assert(!hasDepth);
             depthReference.attachment = attachmentIndex;
             depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             hasDepth = true;
-        } else {
+        }
+        else
+        {
             colorReferences.push_back(
                 { .attachment = attachmentIndex,
                     .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
@@ -132,6 +151,19 @@ void VulkanFramebuffer::createRenderPass()
 
         attachmentIndex++;
     };
+
+    if(hasDepth and depthAttachment)
+    {
+        throw std::runtime_error("Trying to create two depth attachments in one framebuffer.");
+    }
+
+    // dirty hack to plug in our depth attachment during creating framebuffer from swapchain.
+    if(not hasDepth and depthAttachment)
+    {
+        depthReference.attachment = getAttachmentDescriptionIndex(EFramebufferAttachmentType::ATTACHMENT_DEPTH);
+        depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        hasDepth = true;
+    }
 
     const auto subpass = [hasColor, hasDepth, &colorReferences, &depthReference]() {
         VkSubpassDescription s {};
@@ -218,6 +250,11 @@ void VulkanFramebuffer::createFramebuffer()
             attachmentViews.push_back(image.getImageView());
         }
 
+        if(depthAttachment)
+        {
+            attachmentViews.push_back(depthAttachment->getImageView());
+        }
+
         // we need to find maximum layer count from all attachments.
         auto it = std::max_element(
             std::begin(framebufferStruct.attachments),
@@ -247,6 +284,21 @@ void VulkanFramebuffer::createFramebuffer()
     }
 }
 
+memory::VulkanImage VulkanFramebuffer::createDepthAttachment()
+{
+    memory::VulkanImageCreateInfo ci =
+    {
+        .width = width,
+        .height = height,
+        .layerCount = 1,
+        .mipLevels = 1,
+        .format = VK_FORMAT_D32_SFLOAT,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    };
+
+    return memory::VulkanImage(ci, allocator);
+}
+
 VkAttachmentDescription VulkanFramebuffer::getAttachmentDescription(EFramebufferAttachmentType type)
 {
     assert(framebuffers.size() != 0);
@@ -259,6 +311,20 @@ VkAttachmentDescription VulkanFramebuffer::getAttachmentDescription(EFramebuffer
     assert(it != std::end(attachmentsInfo));
 
     return it->description;
+}
+
+size_t VulkanFramebuffer::getAttachmentDescriptionIndex(EFramebufferAttachmentType type)
+{
+    assert(framebuffers.size() != 0);
+
+    auto it = std::find_if(std::begin(attachmentsInfo), std::end(attachmentsInfo),
+        [type](const AttachmentInfo& attachment) {
+            return attachment.type == type;
+        });
+
+    assert(it != std::end(attachmentsInfo));
+
+    return std::distance(std::begin(attachmentsInfo), it);
 }
 
 } // namespace render

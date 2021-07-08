@@ -39,6 +39,23 @@ render::Mesh loadTriangleAsMesh(VmaAllocator allocator)
     return render::Mesh(mesh_data, allocator);
 }
 
+render::Mesh loadTheThing(VmaAllocator allocator)
+{
+    std::vector<render::Vertex> mesh_data;
+    mesh_data.resize(3);
+
+    mesh_data[0].pos = { 0.f, 0.3f, 0.4f };
+    mesh_data[1].pos = { -1.f, 0.5f, 0.4f };
+    mesh_data[2].pos = { 0.5f, -1.f, 0.4f };
+
+    // we will use this as color data for now.
+    mesh_data[0].surf_normals = { 1.f, 0.f, 1.0f };
+    mesh_data[1].surf_normals = { 0.f, 1.f, 1.0f };
+    mesh_data[2].surf_normals = { 1.f, 0.f, 1.0f };
+
+    return render::Mesh(mesh_data, allocator);
+}
+
 } // anonymous namespace
 
 namespace render {
@@ -157,8 +174,11 @@ void VulkanApplication::recordCommandBuffers()
         if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
             throw std::runtime_error("cannot begin command buffer.");
 
-        VkClearValue clearValue = { 0.0f, 0.0f, 0.0f, 1.0f };
-        const auto renderPassInfo = [i, &clearValue, this] {
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+        clearValues[1].depthStencil = {1.0f, 0};
+
+        const auto renderPassInfo = [i, &clearValues, this] {
             VkRenderPassBeginInfo rbi {};
             rbi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
             rbi.renderPass = vkSwapchainFramebuffer.getRenderPass();
@@ -167,8 +187,8 @@ void VulkanApplication::recordCommandBuffers()
             rbi.renderArea.offset = { 0, 0 };
             rbi.renderArea.extent = vkSwapchain.getSwapchainExtent();
 
-            rbi.clearValueCount = 1;
-            rbi.pClearValues = &clearValue;
+            rbi.clearValueCount = clearValues.size();
+            rbi.pClearValues = clearValues.data();
 
             return rbi;
         }();
@@ -180,11 +200,8 @@ void VulkanApplication::recordCommandBuffers()
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipeline.getHandle());
 
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, triangle.getVkInfo().getpVkBuffer(),
-            triangle.getVkInfo().getpOffset());
-
-        vkCmdDraw(commandBuffers[i], triangle.vertexCount(), 1, 0, 0); // 3 vertices, 1 instance,
-            // offset of vertex, offset of instance
+        triangle.cmdDraw(commandBuffers[i]);
+        triangle2.cmdDraw(commandBuffers[i]);
 
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -230,8 +247,9 @@ void VulkanApplication::initVulkan()
     createSurface();
     vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
     triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
+    triangle2 = loadTheThing(vkDevice.getVmaAllocator());
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
-    vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), vkSwapchain, false);
+    vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), vkSwapchain, true);
 
     FramebufferAttachmentInfo inf = {
         .ci = {

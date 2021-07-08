@@ -33,7 +33,10 @@ Mesh::~Mesh()
 
 void Mesh::cmdDraw(VkCommandBuffer commandBuffer)
 {
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, getVkInfo().getpVkBuffer(), getVkInfo().getpOffset());
+    // we do not use getpOffset as this gives offset in underlying VkDeviceMemory.
+    // And we want to go from start of the buffer, so just 0.
+    VkDeviceSize size{0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, getVkInfo().getpVkBuffer(), &size);//getVkInfo().getpOffset());
     vkCmdDraw(commandBuffer, vertexCount(), 1, 0, 0);
 }
 } // namespace render

@@ -50,7 +50,7 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
 
     else if (ci.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
         if (hasDepth()) {
-            aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; //VK_IMAGE_ASPECT_COLOR_BIT;
         }
         if (hasStencil()) {
             aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
