@@ -16,6 +16,7 @@
 #include "Vertex.hpp"
 #include "VulkanApplication.hpp"
 #include "VulkanFramebuffer.hpp"
+#include "Renderable.hpp"
 
 namespace {
 
@@ -55,6 +56,16 @@ render::Mesh loadTheThing(VmaAllocator allocator)
 
     return render::Mesh(mesh_data, allocator);
 }
+
+render::Renderable makeRenderableFromMeshies(const render::VulkanDevice& device, std::shared_ptr<render::Pipeline> pipeline)
+{
+    std::vector<render::Mesh> meshes;
+    meshes.emplace_back(std::move(loadTriangleAsMesh(device.getVmaAllocator())));
+    meshes.emplace_back(std::move(loadTheThing(device.getVmaAllocator())));
+
+    return render::Renderable(device, pipeline, std::move(meshes));
+}
+
 
 } // anonymous namespace
 
@@ -98,9 +109,9 @@ void VulkanApplication::createGraphicsPipeline()
         Shader { vkDevice.getDevice(), "shaders/frag.spv", EShaderType::FRAGMENT_SHADER }
     };
 
-    pipeline = Pipeline(shaders, vkSwapchain.getSwapchainExtent(), vkDevice.getDevice(),
+    pipeline = std::make_shared<Pipeline>(Pipeline(shaders, vkSwapchain.getSwapchainExtent(), vkDevice.getDevice(),
         vkSwapchainFramebuffer.getRenderPass(),
-        Pipeline::vertex_input_tag<Vertex> {});
+        Pipeline::vertex_input_tag<Vertex> {}));
 }
 
 void VulkanApplication::createOffscreenFramebuffer()
@@ -195,13 +206,7 @@ void VulkanApplication::recordCommandBuffers()
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        // those 3 calls + also descriptor set bindings are going to be done in loop for all the
-        // different renderables
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipeline.getHandle());
-
-        triangle.cmdDraw(commandBuffers[i]);
-        triangle2.cmdDraw(commandBuffers[i]);
+        two_triangles->cmdBindSetsDrawMeshes(commandBuffers[i], 0);
 
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -246,8 +251,10 @@ void VulkanApplication::initVulkan()
     vkInstance = VkInstance(enableValidationLayers);
     createSurface();
     vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
+
     triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
     triangle2 = loadTheThing(vkDevice.getVmaAllocator());
+
     vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
     vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), vkSwapchain, true);
 
@@ -267,6 +274,8 @@ void VulkanApplication::initVulkan()
     auto framebuf = VulkanFramebuffer(vkDevice.getVmaAllocator(), { inf }, 3);
 
     createGraphicsPipeline();
+    two_triangles = std::make_unique<Renderable>(makeRenderableFromMeshies(vkDevice, pipeline));
+
     createCommandPool();
     createCommandBuffers();
     recordCommandBuffers();
@@ -284,6 +293,8 @@ void VulkanApplication::mainLoop()
 
 void VulkanApplication::drawFrame()
 {
+    RenderableUbo ubo = { .times = glfwGetTime() };
+    two_triangles->updateUniforms(ubo, 0);
     // we check whether we can actually start rendering another frame, we want to have
     // a maximum of maxFramesInFlight on queue.
     vkWaitForFences(vkDevice.getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);

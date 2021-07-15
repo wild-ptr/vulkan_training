@@ -15,6 +15,7 @@ Pipeline::~Pipeline()
 
 Pipeline::Pipeline(Pipeline&& rhs)
     : pipeline(rhs.pipeline)
+    , descriptorSetLayouts(std::move(rhs.descriptorSetLayouts))
     , pipelineLayout(rhs.pipelineLayout)
     , device(rhs.device)
 {
@@ -26,6 +27,7 @@ Pipeline& Pipeline::operator=(Pipeline&& rhs)
 {
     pipeline = rhs.pipeline;
     pipelineLayout = rhs.pipelineLayout;
+    descriptorSetLayouts = std::move(rhs.descriptorSetLayouts);
 
     rhs.pipeline = VK_NULL_HANDLE;
     rhs.pipelineLayout = VK_NULL_HANDLE;

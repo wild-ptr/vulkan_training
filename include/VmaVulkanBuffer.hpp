@@ -12,7 +12,7 @@ namespace render::memory {
 
 // explicit interface for copyToBuffer
 struct Offset {
-    Offset(size_t offset)
+    explicit Offset(size_t offset)
         : offset(offset)
     {
     }
@@ -20,7 +20,7 @@ struct Offset {
 };
 
 struct Size {
-    Size(size_t size)
+    explicit Size(size_t size)
         : size(size)
     {
     }

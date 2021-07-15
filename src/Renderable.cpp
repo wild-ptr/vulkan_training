@@ -2,9 +2,11 @@
 #include "EDescriptorSets.hpp"
 
 namespace render {
-Renderable::Renderable(const VulkanDevice& device, std::vector<Mesh> meshes)
+Renderable::Renderable(const VulkanDevice& device, std::shared_ptr<Pipeline> pipeline, std::vector<Mesh> meshes)
     : device(device)
     , meshes(std::move(meshes))
+    , pipeline(std::move(pipeline))
+    , uniforms(std::make_unique<memory::UniformData<RenderableUbo, consts::maxFramesInFlight>>(device.getVmaAllocator()))
 {
     createDescriptorPool();
     generateUboDescriptorSets();
@@ -71,11 +73,6 @@ void Renderable::cmdBindSetsDrawMeshes(VkCommandBuffer commandBuffer, uint32_t f
 {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getHandle());
 
-    for(auto& mesh : meshes)
-    {
-        mesh.cmdDraw(commandBuffer);
-    }
-
     vkCmdBindDescriptorSets(
             commandBuffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -83,6 +80,12 @@ void Renderable::cmdBindSetsDrawMeshes(VkCommandBuffer commandBuffer, uint32_t f
             EDescriptorSets::BindFrequency_Object, 1, // object-freq set, one set
             &descriptorSets[frameIndex],
             0, 0); // dynamic offsets junk
+
+    for(auto& mesh : meshes)
+    {
+        mesh.cmdDraw(commandBuffer);
+    }
+
 }
 
 } // namespace render

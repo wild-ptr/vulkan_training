@@ -94,7 +94,6 @@ namespace {
         }
 
         spvReflectDestroyShaderModule(&module);
-
         return set_layouts;
     }
 

@@ -10,6 +10,7 @@
 #include "VulkanFramebuffer.hpp"
 #include "VulkanInstance.hpp"
 #include "VulkanSwapchain.hpp"
+#include "Renderable.hpp"
 
 namespace render {
 
@@ -47,8 +48,10 @@ private:
 
     Mesh triangle;
     Mesh triangle2;
+    std::unique_ptr<Renderable> two_triangles;
 
-    Pipeline pipeline;
+    std::shared_ptr<Pipeline> pipeline;
+
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;

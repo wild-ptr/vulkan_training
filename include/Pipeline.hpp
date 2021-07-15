@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <vector>
+#include <cassert>
 #include "EDescriptorSets.hpp"
 
 
@@ -52,10 +53,13 @@ public:
             vertexInputInfo = [] {
                 VkPipelineVertexInputStateCreateInfo vertexInputInfo {};
                 vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
                 vertexInputInfo.vertexBindingDescriptionCount = 0;
                 vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
+
                 vertexInputInfo.vertexAttributeDescriptionCount = 0;
                 vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+
                 return vertexInputInfo;
             }();
         } else {
@@ -76,7 +80,7 @@ public:
         }
 
         // Right now all set layouts are defined by vertex shader.
-        auto it = std::find_if(std::cbegin(shaders), std::end(shaders),
+        auto it = std::find_if(std::cbegin(shaders), std::cend(shaders),
             [](const auto& shader) {
                 return shader.getShaderType() == VK_SHADER_STAGE_VERTEX_BIT;
             });
@@ -86,7 +90,6 @@ public:
         }
 
         descriptorSetLayouts = it->getReflectedDescriptorSetLayouts();
-
         createPipelineLayout(*it);
 
         const auto inputAssembly = [] {
@@ -218,7 +221,7 @@ public:
 
             pci.layout = pipelineLayout;
             pci.renderPass = renderPass;
-            pci.subpass = 0; // so i can only choose one? Makes sense for one subpass run to be one pipeline.
+            pci.subpass = 0; // one subpass only
 
             return pci;
         }();
@@ -227,12 +230,15 @@ public:
             &pipeline));
     }
 
-    Pipeline() {};
     Pipeline(Pipeline&&);
     ~Pipeline();
     VkPipeline getHandle() const { return pipeline; }
     VkPipelineLayout getLayoutHandle() const { return pipelineLayout; }
-    VkDescriptorSetLayout getDescriptorSetLayout(EDescriptorSets::EDescriptorSets index) { return descriptorSetLayouts[index]; }
+    VkDescriptorSetLayout getDescriptorSetLayout(EDescriptorSets::EDescriptorSets index)
+    {
+        assert(index < descriptorSetLayouts.size());
+        return descriptorSetLayouts[index];
+    }
 
     Pipeline& operator=(Pipeline&&);
 

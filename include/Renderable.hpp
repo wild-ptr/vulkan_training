@@ -1,5 +1,7 @@
+#pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <memory>
 
 #include "Constants.hpp"
 #include "Mesh.hpp"
@@ -9,6 +11,8 @@
 
 namespace render {
 
+// of course we will make renderable templated in the future to allow plugging in specific UBO's
+// for different pipelines.
 struct RenderableUbo {
     glm::mat4 model;
     float times;
@@ -19,7 +23,7 @@ struct RenderableUbo {
  * and will contain meshes that are to be drawn on screen. */
 class Renderable {
 public:
-    Renderable(const VulkanDevice& device, std::vector<Mesh> meshes);
+    Renderable(const VulkanDevice& device, std::shared_ptr<Pipeline> pipeline, std::vector<Mesh> meshes);
     void updateUniforms(RenderableUbo, size_t bufferIdx);
     void cmdBindSetsDrawMeshes(VkCommandBuffer, uint32_t frameIndex);
 
