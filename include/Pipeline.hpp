@@ -27,7 +27,7 @@ public:
 
     // All of the pipelineLayout is created based on vertex shader right now.
     // @TODO change this in the future to support descriptors that bind only to
-    // a specific pipeline.
+    // a specific pipeline shader stage.
     template <typename InputVertexTag = decltype(noInputTag),
         typename InputVertexFormat = typename InputVertexTag::type>
     Pipeline(const std::vector<Shader>& shaders,

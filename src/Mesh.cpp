@@ -2,24 +2,22 @@
 #include "VulkanMacros.hpp"
 #include <cstring>
 
-namespace {
-
-} // anon namespace
-
 namespace render {
 
-Mesh::Mesh(const std::vector<Vertex>& mesh_data, VmaAllocator allocator)
-    : allocator(allocator)
+Mesh::Mesh(const std::vector<Vertex>& mesh_data, std::shared_ptr<VulkanDevice> deviceptr)
+    : device(std::move(deviceptr))
+    , allocator(device->getVmaAllocator())
     , vertices(mesh_data.size())
-    , vertex_buffer(allocator, mesh_data,
+    , vertex_buffer(device, mesh_data,
           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
 {
 }
 
-Mesh::Mesh(std::vector<Vertex>&& mesh_data, VmaAllocator allocator)
-    : allocator(allocator)
+Mesh::Mesh(const std::vector<Vertex>&& mesh_data, std::shared_ptr<VulkanDevice> deviceptr)
+    : device(std::move(deviceptr))
+    , allocator(device->getVmaAllocator())
     , vertices(mesh_data.size())
-    , vertex_buffer(allocator, mesh_data,
+    , vertex_buffer(device, mesh_data,
           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
 {
 }
@@ -36,7 +34,7 @@ void Mesh::cmdDraw(VkCommandBuffer commandBuffer)
     // we do not use getpOffset as this gives offset in underlying VkDeviceMemory.
     // And we want to go from start of the buffer, so just 0.
     VkDeviceSize size{0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, getVkInfo().getpVkBuffer(), &size);//getVkInfo().getpOffset());
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, getVkInfo().getpVkBuffer(), &size);
     vkCmdDraw(commandBuffer, vertexCount(), 1, 0, 0);
 }
 } // namespace render

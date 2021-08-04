@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <cstring>
 #include <vector>
+#include <memory>
 
 namespace render::memory {
 
@@ -31,7 +32,7 @@ class VmaVulkanBuffer {
 public:
     // ctor from void* arbitrary data
     VmaVulkanBuffer(
-        VmaAllocator allocator,
+        std::shared_ptr<VulkanDevice> device,
         const void* data,
         size_t size,
         VkBufferUsageFlags vk_flags,
@@ -40,12 +41,13 @@ public:
     // ctor from std::vector<T> data
     template <typename T>
     VmaVulkanBuffer(
-        VmaAllocator allocator,
+        std::shared_ptr<VulkanDevice> deviceptr,
         const std::vector<T>& data,
         VkBufferUsageFlags vk_flags,
         VmaMemoryUsage vma_usage)
-        : allocator(allocator)
-        , mapped_data(nullptr)
+    : device(std::move(deviceptr))
+    , allocator(device->getVmaAllocator())
+    , mapped_data(nullptr)
     {
         createMemoryBuffer(data.size() * sizeof(T), vk_flags, vma_usage);
         copyToBuffer(data.data(), data.size() * sizeof(T));
@@ -80,6 +82,7 @@ private:
     void createBufferDescriptor();
     void getPhysicalMemoryAllocInfo();
 
+    std::shared_ptr<VulkanDevice> device;
     VmaAllocator allocator;
     void* mapped_data;
     VkBuffer vkBuffer;

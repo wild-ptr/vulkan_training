@@ -23,7 +23,7 @@ namespace {
 static constexpr auto maxFramesInFlight = 2u;
 
 // this will be deleted in the future, dw.
-render::Mesh loadTriangleAsMesh(VmaAllocator allocator)
+render::Mesh loadTriangleAsMesh(std::shared_ptr<render::VulkanDevice> device)
 {
     std::vector<render::Vertex> mesh_data;
     mesh_data.resize(3);
@@ -37,10 +37,10 @@ render::Mesh loadTriangleAsMesh(VmaAllocator allocator)
     mesh_data[1].surf_normals = { 0.f, 1.f, 0.0f };
     mesh_data[2].surf_normals = { 0.f, 0.f, 1.0f };
 
-    return render::Mesh(mesh_data, allocator);
+    return render::Mesh(mesh_data, std::move(device));
 }
 
-render::Mesh loadTheThing(VmaAllocator allocator)
+render::Mesh loadTheThing(std::shared_ptr<render::VulkanDevice> device)
 {
     std::vector<render::Vertex> mesh_data;
     mesh_data.resize(3);
@@ -54,14 +54,16 @@ render::Mesh loadTheThing(VmaAllocator allocator)
     mesh_data[1].surf_normals = { 0.f, 1.f, 1.0f };
     mesh_data[2].surf_normals = { 1.f, 0.f, 1.0f };
 
-    return render::Mesh(mesh_data, allocator);
+    return render::Mesh(mesh_data, std::move(device));
 }
 
-render::Renderable makeRenderableFromMeshies(const render::VulkanDevice& device, std::shared_ptr<render::Pipeline> pipeline)
+render::Renderable makeRenderableFromMeshies(
+        std::shared_ptr<render::VulkanDevice> device,
+        std::shared_ptr<render::Pipeline> pipeline)
 {
     std::vector<render::Mesh> meshes;
-    meshes.emplace_back(std::move(loadTriangleAsMesh(device.getVmaAllocator())));
-    meshes.emplace_back(std::move(loadTheThing(device.getVmaAllocator())));
+    meshes.emplace_back(loadTriangleAsMesh(device));
+    meshes.emplace_back(loadTheThing(device));
 
     return render::Renderable(device, pipeline, std::move(meshes));
 }
@@ -105,13 +107,16 @@ void VulkanApplication::initWindow()
 void VulkanApplication::createGraphicsPipeline()
 {
     std::vector<Shader> shaders = {
-        Shader { vkDevice.getDevice(), "shaders/vert.spv", EShaderType::VERTEX_SHADER },
-        Shader { vkDevice.getDevice(), "shaders/frag.spv", EShaderType::FRAGMENT_SHADER }
+        Shader { vkDevice->getDevice(), "shaders/vert.spv", EShaderType::VERTEX_SHADER },
+        Shader { vkDevice->getDevice(), "shaders/frag.spv", EShaderType::FRAGMENT_SHADER }
     };
 
-    pipeline = std::make_shared<Pipeline>(Pipeline(shaders, vkSwapchain.getSwapchainExtent(), vkDevice.getDevice(),
+    pipeline = std::make_shared<Pipeline>(
+        shaders,
+        vkSwapchain.getSwapchainExtent(),
+        vkDevice->getDevice(),
         vkSwapchainFramebuffer.getRenderPass(),
-        Pipeline::vertex_input_tag<Vertex> {}));
+        Pipeline::vertex_input_tag<Vertex>{});
 }
 
 void VulkanApplication::createOffscreenFramebuffer()
@@ -130,7 +135,7 @@ void VulkanApplication::createOffscreenFramebuffer()
     attachments.push_back(inf);
 
     // just to test new framebuffer module.
-    //offscreenFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), {inf}, 3);
+    //offscreenFramebuffer = VulkanFramebuffer(vkDevice->getVmaAllocator(), {inf}, 3);
 }
 
 void VulkanApplication::createCommandPool()
@@ -138,12 +143,12 @@ void VulkanApplication::createCommandPool()
     const auto poolInfo = [this] {
         VkCommandPoolCreateInfo pi {};
         pi.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        pi.queueFamilyIndex = vkDevice.getGraphicsQueueIndice();
+        pi.queueFamilyIndex = vkDevice->getGraphicsQueueIndice();
         pi.flags = 0;
         return pi;
     }();
 
-    if (vkCreateCommandPool(vkDevice.getDevice(), &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+    if (vkCreateCommandPool(vkDevice->getDevice(), &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create command pool.");
 }
 
@@ -163,7 +168,7 @@ void VulkanApplication::createCommandBuffers()
         return ai;
     }();
 
-    if (vkAllocateCommandBuffers(vkDevice.getDevice(), &allocateInfo, commandBuffers.data()) != VK_SUCCESS)
+    if (vkAllocateCommandBuffers(vkDevice->getDevice(), &allocateInfo, commandBuffers.data()) != VK_SUCCESS)
         throw std::runtime_error("cannot allocate command buffers!");
 }
 
@@ -231,11 +236,11 @@ void VulkanApplication::createSyncObjects()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (size_t i = 0; i < imageAvailableSemaphores.size(); ++i) {
-        if (vkCreateSemaphore(vkDevice.getDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i])
+        if (vkCreateSemaphore(vkDevice->getDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i])
                 != VK_SUCCESS
-            or vkCreateSemaphore(vkDevice.getDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i])
+            or vkCreateSemaphore(vkDevice->getDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i])
                 != VK_SUCCESS
-            or vkCreateFence(vkDevice.getDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+            or vkCreateFence(vkDevice->getDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
             throw std::runtime_error("failed to create semaphores!");
     }
 }
@@ -250,13 +255,13 @@ void VulkanApplication::initVulkan()
 
     vkInstance = VkInstance(enableValidationLayers);
     createSurface();
-    vkDevice = VulkanDevice(vkInstance.getInstance(), surface);
+    vkDevice = std::make_shared<VulkanDevice>(vkInstance.getInstance(), surface);
 
-    triangle = loadTriangleAsMesh(vkDevice.getVmaAllocator());
-    triangle2 = loadTheThing(vkDevice.getVmaAllocator());
+    triangle = loadTriangleAsMesh(vkDevice);
+    triangle2 = loadTheThing(vkDevice);
 
-    vkSwapchain = VulkanSwapchain(vkDevice, surface, window);
-    vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice.getVmaAllocator(), vkSwapchain, true);
+    vkSwapchain = VulkanSwapchain(*vkDevice, surface, window);
+    vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice->getVmaAllocator(), vkSwapchain, true);
 
     FramebufferAttachmentInfo inf = {
         .ci = {
@@ -271,7 +276,7 @@ void VulkanApplication::initVulkan()
     };
 
     // just to test new framebuffer module.
-    auto framebuf = VulkanFramebuffer(vkDevice.getVmaAllocator(), { inf }, 3);
+    auto framebuf = VulkanFramebuffer(vkDevice->getVmaAllocator(), { inf }, 3);
 
     createGraphicsPipeline();
     two_triangles = std::make_unique<Renderable>(makeRenderableFromMeshies(vkDevice, pipeline));
@@ -297,10 +302,10 @@ void VulkanApplication::drawFrame()
     two_triangles->updateUniforms(ubo, 0);
     // we check whether we can actually start rendering another frame, we want to have
     // a maximum of maxFramesInFlight on queue.
-    vkWaitForFences(vkDevice.getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(vkDevice->getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(vkDevice.getDevice(),
+    vkAcquireNextImageKHR(vkDevice->getDevice(),
         vkSwapchain.getSwapchain(),
         UINT64_MAX, // timeout in ns, uint64_max disables timeout.
         imageAvailableSemaphores[currentFrame],
@@ -312,7 +317,7 @@ void VulkanApplication::drawFrame()
     // than our maximum frames in flight setting. Therefore we also have to check if given
     // swapchain image is not used by another frame, and if so, we have to stall.
     if (imagesInFlight[imageIndex] != VK_NULL_HANDLE)
-        vkWaitForFences(vkDevice.getDevice(), 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+        vkWaitForFences(vkDevice->getDevice(), 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
 
     imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
@@ -346,10 +351,10 @@ void VulkanApplication::drawFrame()
     }();
 
     // Reset operation makes fence block! Not the other way around.
-    vkResetFences(vkDevice.getDevice(), 1, &inFlightFences[currentFrame]);
+    vkResetFences(vkDevice->getDevice(), 1, &inFlightFences[currentFrame]);
 
     // dont we have a race condition right there? Yes but this is not multithreaded. (yet!)
-    if (vkQueueSubmit(vkDevice.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame])
+    if (vkQueueSubmit(vkDevice->getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame])
         != VK_SUCCESS)
         throw std::runtime_error("Cannot submit to queue");
 
@@ -369,7 +374,7 @@ void VulkanApplication::drawFrame()
         return pi;
     }();
 
-    vkQueuePresentKHR(vkDevice.getPresentationQueue(), &presentInfo);
+    vkQueuePresentKHR(vkDevice->getPresentationQueue(), &presentInfo);
 
     currentFrame = (currentFrame + 1) % maxFramesInFlight;
 }
@@ -377,24 +382,24 @@ void VulkanApplication::drawFrame()
 void VulkanApplication::cleanup()
 {
     for (size_t i = 0; i < imageAvailableSemaphores.size(); ++i) {
-        vkDestroySemaphore(vkDevice.getDevice(), imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(vkDevice.getDevice(), renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(vkDevice.getDevice(), inFlightFences[i], nullptr);
+        vkDestroySemaphore(vkDevice->getDevice(), imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(vkDevice->getDevice(), renderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(vkDevice->getDevice(), inFlightFences[i], nullptr);
     }
 
-    vkDestroyCommandPool(vkDevice.getDevice(), commandPool, nullptr);
+    vkDestroyCommandPool(vkDevice->getDevice(), commandPool, nullptr);
 
     //for(auto&& framebuffer : swapChainFramebuffers)
-    //    vkDestroyFramebuffer(vkDevice.getDevice(), framebuffer, nullptr);
+    //    vkDestroyFramebuffer(vkDevice->getDevice(), framebuffer, nullptr);
 
-    //vkDestroyRenderPass(vkDevice.getDevice(), renderPass, nullptr);
+    //vkDestroyRenderPass(vkDevice->getDevice(), renderPass, nullptr);
 
     for (auto&& image : vkSwapchain.getSwapchainImageViews())
-        vkDestroyImageView(vkDevice.getDevice(), image, nullptr);
+        vkDestroyImageView(vkDevice->getDevice(), image, nullptr);
 
-    vkDestroySwapchainKHR(vkDevice.getDevice(), vkSwapchain.getSwapchain(), nullptr);
+    vkDestroySwapchainKHR(vkDevice->getDevice(), vkSwapchain.getSwapchain(), nullptr);
     vkDestroySurfaceKHR(vkInstance.getInstance(), surface, nullptr);
-    vkDestroyDevice(vkDevice.getDevice(), nullptr);
+    vkDestroyDevice(vkDevice->getDevice(), nullptr);
     glfwDestroyWindow(window);
     glfwTerminate();
 }

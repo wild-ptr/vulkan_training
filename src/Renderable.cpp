@@ -2,11 +2,14 @@
 #include "EDescriptorSets.hpp"
 
 namespace render {
-Renderable::Renderable(const VulkanDevice& device, std::shared_ptr<Pipeline> pipeline, std::vector<Mesh> meshes)
-    : device(device)
+Renderable::Renderable(
+        std::shared_ptr<VulkanDevice> deviceptr,
+        std::shared_ptr<Pipeline> pipeline,
+        std::vector<Mesh> meshes)
+    : device(std::move(deviceptr))
     , meshes(std::move(meshes))
     , pipeline(std::move(pipeline))
-    , uniforms(std::make_unique<memory::UniformData<RenderableUbo, consts::maxFramesInFlight>>(device.getVmaAllocator()))
+    , uniforms(std::make_unique<memory::UniformData<RenderableUbo, consts::maxFramesInFlight>>(device))
 {
     createDescriptorPool();
     generateUboDescriptorSets();
@@ -26,7 +29,7 @@ void Renderable::createDescriptorPool()
         .pPoolSizes = &poolSize
     };
 
-    VK_CHECK(vkCreateDescriptorPool(device.getDevice(), &ci, nullptr, &descriptorPool));
+    VK_CHECK(vkCreateDescriptorPool(device->getDevice(), &ci, nullptr, &descriptorPool));
 }
 
 void Renderable::generateUboDescriptorSets()
@@ -43,7 +46,7 @@ void Renderable::generateUboDescriptorSets()
 
     descriptorSets.resize(consts::maxFramesInFlight);
 
-    VK_CHECK(vkAllocateDescriptorSets(device.getDevice(), &ai, descriptorSets.data()));
+    VK_CHECK(vkAllocateDescriptorSets(device->getDevice(), &ai, descriptorSets.data()));
 
     auto uboBufferInfos = uniforms->getDescriptorBufferInfos();
     // we now need to fill our descriptor sets with proper buffers.
@@ -58,7 +61,7 @@ void Renderable::generateUboDescriptorSets()
             .pBufferInfo = &uboBufferInfos[i]
         };
 
-        vkUpdateDescriptorSets(device.getDevice(), 1, &wds, 0, nullptr);
+        vkUpdateDescriptorSets(device->getDevice(), 1, &wds, 0, nullptr);
     }
 }
 

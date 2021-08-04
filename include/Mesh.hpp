@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 
 #include "Vertex.hpp"
+#include "VulkanDevice.hpp"
 #include "VmaVulkanBuffer.hpp"
 #include <vector>
 
@@ -11,8 +12,8 @@ namespace render {
 
 class Mesh {
 public:
-    Mesh(const std::vector<Vertex>& mesh_data, VmaAllocator);
-    Mesh(std::vector<Vertex>&& mesh_data, VmaAllocator);
+    Mesh(const std::vector<Vertex>& mesh_data, std::shared_ptr<VulkanDevice> device);
+    Mesh(const std::vector<Vertex>&& mesh_data, std::shared_ptr<VulkanDevice> device);
     Mesh() {};
     ~Mesh();
 
@@ -21,6 +22,7 @@ public:
     void cmdDraw(VkCommandBuffer);
 
 private:
+    std::shared_ptr<VulkanDevice> device;
     VmaAllocator allocator;
     size_t vertices;
     memory::VmaVulkanBuffer vertex_buffer;

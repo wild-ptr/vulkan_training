@@ -4,12 +4,13 @@
 namespace render::memory {
 
 VmaVulkanBuffer::VmaVulkanBuffer(
-    VmaAllocator allocator,
+    std::shared_ptr<VulkanDevice> deviceptr,
     const void* data,
     size_t size,
     VkBufferUsageFlags vk_flags,
     const VmaMemoryUsage vma_usage)
-    : allocator(allocator)
+    : device(std::move(deviceptr))
+    , allocator(device->getVmaAllocator())
     , mapped_data(nullptr)
 {
     createMemoryBuffer(size, vk_flags, vma_usage);
@@ -139,7 +140,8 @@ void VmaVulkanBuffer::getPhysicalMemoryAllocInfo()
     VmaAllocatorInfo vmaallocator_info;
     vmaGetAllocatorInfo(allocator, &vmaallocator_info);
 
-    allocated_memory_properties = deviceUtils::getMemoryProperties(vmaallocator_info.physicalDevice, allocation_info.memoryType);
+    allocated_memory_properties = deviceUtils::getMemoryProperties(
+            vmaallocator_info.physicalDevice, allocation_info.memoryType);
 }
 
 } // namespace render::memory

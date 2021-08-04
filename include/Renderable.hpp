@@ -23,7 +23,10 @@ struct RenderableUbo {
  * and will contain meshes that are to be drawn on screen. */
 class Renderable {
 public:
-    Renderable(const VulkanDevice& device, std::shared_ptr<Pipeline> pipeline, std::vector<Mesh> meshes);
+    Renderable(
+            std::shared_ptr<VulkanDevice> device,
+            std::shared_ptr<Pipeline> pipeline,
+            std::vector<Mesh> meshes);
     void updateUniforms(RenderableUbo, size_t bufferIdx);
     void cmdBindSetsDrawMeshes(VkCommandBuffer, uint32_t frameIndex);
 
@@ -31,7 +34,7 @@ private:
     void createDescriptorPool();
     void generateUboDescriptorSets();
 
-    const VulkanDevice& device;
+    std::shared_ptr<VulkanDevice> device;
     std::vector<Mesh> meshes;
     std::shared_ptr<Pipeline> pipeline;
     std::unique_ptr<memory::UniformData<RenderableUbo, consts::maxFramesInFlight>> uniforms;

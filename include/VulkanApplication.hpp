@@ -42,7 +42,9 @@ private:
 
     VmaAllocator vmaAllocator;
     VulkanInstance vkInstance;
-    VulkanDevice vkDevice;
+
+    // @TODO: make all of them shared_ptrs in the future and delete default ctors.
+    std::shared_ptr<VulkanDevice> vkDevice;
     VulkanSwapchain vkSwapchain;
     VulkanFramebuffer vkSwapchainFramebuffer;
 

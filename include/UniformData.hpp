@@ -47,9 +47,9 @@ size_t calcAlignedTypeSize(size_t alignment)
 template <class T, unsigned N = 1>
 class UniformData {
 public:
-    UniformData(VmaAllocator allocator)
-        : aligned_t_size(calcAlignedTypeSize<T>(getMinUboOffsetAlignment(allocator)))
-        , ubo_buffer(allocator, nullptr, aligned_t_size * N,
+    UniformData(std::shared_ptr<VulkanDevice> device)
+        : aligned_t_size(calcAlignedTypeSize<T>(getMinUboOffsetAlignment(device->getVmaAllocator())))
+        , ubo_buffer(std::move(device), nullptr, aligned_t_size * N,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // buffer usage flags
             VMA_MEMORY_USAGE_CPU_TO_GPU) // memory usage flags
     {
@@ -57,10 +57,10 @@ public:
         ubo_buffer.map();
     }
 
-    UniformData(VmaAllocator allocator, std::array<T, N> data)
+    UniformData(std::shared_ptr<VulkanDevice> device, std::array<T, N> data)
         : ubo_arr(std::move(data))
-        , aligned_t_size(calcAlignedTypeSize<T>(getMinUboOffsetAlignment(allocator)))
-        , ubo_buffer(allocator, nullptr, aligned_t_size * N,
+        , aligned_t_size(calcAlignedTypeSize<T>(getMinUboOffsetAlignment(device->getVmaAllocator())))
+        , ubo_buffer(std::move(device), nullptr, aligned_t_size * N,
               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // buffer usage flags
               VMA_MEMORY_USAGE_CPU_TO_GPU) // memory usage flags
     {

@@ -45,7 +45,6 @@ private:
 };
 
 namespace deviceUtils {
-
     uint32_t getMemoryTypeIndex(
         VkPhysicalDevice physDevice,
         uint32_t mem_type_bits,
@@ -55,7 +54,6 @@ namespace deviceUtils {
     VkMemoryPropertyFlags getMemoryProperties(
         VkPhysicalDevice physDevice,
         uint32_t memIndex);
-
 }
 
 } // namespace render
