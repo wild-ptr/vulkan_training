@@ -29,6 +29,7 @@ struct Size {
 };
 
 class VmaVulkanBuffer {
+    struct BufferInfo;
 public:
     // ctor from void* arbitrary data
     VmaVulkanBuffer(
@@ -45,24 +46,20 @@ public:
         const std::vector<T>& data,
         VkBufferUsageFlags vk_flags,
         VmaMemoryUsage vma_usage)
-    : device(std::move(deviceptr))
-    , allocator(device->getVmaAllocator())
-    , mapped_data(nullptr)
+    : VmaVulkanBuffer(deviceptr, data.data(), data.size() * sizeof(T), vk_flags, vma_usage)
     {
-        createMemoryBuffer(data.size() * sizeof(T), vk_flags, vma_usage);
-        copyToBuffer(data.data(), data.size() * sizeof(T));
-        createBufferDescriptor();
     }
 
     VmaVulkanBuffer() {};
     ~VmaVulkanBuffer() {};
 
-    const VkBuffer* getpVkBuffer() const { return &vkBuffer; }
-    const VkDeviceSize* getpOffset() const { return &allocation_info.offset; }
-    VkDeviceSize getSizeBytes() const { return allocation_info.size; }
-    VkDeviceMemory getVkDeviceMemory() const { return allocation_info.deviceMemory; }
-    VmaAllocation getVmaAllocation() const { return allocation; }
-    const VkDescriptorBufferInfo& getDescriptor() const { return descriptor; }
+    const VkBuffer* getpVkBuffer() const { return &buffer.vkBuffer; }
+    VkBuffer getVkBuffer() const { return buffer.vkBuffer; }
+    const VkDeviceSize* getpOffset() const { return &buffer.allocation_info.offset; }
+    VkDeviceSize getSizeBytes() const { return buffer.allocation_info.size; }
+    VkDeviceMemory getVkDeviceMemory() const { return buffer.allocation_info.deviceMemory; }
+    VmaAllocation getVmaAllocation() const { return buffer.allocation; }
+    const VkDescriptorBufferInfo& getDescriptor() const { return buffer.descriptor; }
 
     void map();
     void unmap();
@@ -70,26 +67,63 @@ public:
 
     // copyToBuffer functions will truncate to buffer size if size is higher.
     void copyToBuffer(const void* data, size_t size);
-    void copyToBuffer(const void* data, Offset offset, Size size);
     // hard interface types to avoid mistaking size and offset
+    void copyToBuffer(const void* data, Offset offset, Size size);
 
 private:
-    void createMemoryBuffer(
+    struct BufferInfo
+    {
+        VkBuffer vkBuffer{VK_NULL_HANDLE};
+        VmaAllocation allocation;
+        VmaAllocationInfo allocation_info;
+        VkMemoryPropertyFlags allocated_memory_properties;
+        VkDescriptorBufferInfo descriptor;
+        void* mapped_data{nullptr};
+        VmaAllocator allocator;
+
+        void map()
+        {
+            if (mapped_data) {
+                return;
+            }
+
+            VK_CHECK(vmaMapMemory(allocator, allocation, &mapped_data));
+        }
+
+        void unmap()
+        {
+            if (not mapped_data) {
+                return;
+            }
+
+            vmaUnmapMemory(allocator, allocation);
+            mapped_data = nullptr; // avoid dangling pointers that are no longer mapped.
+        }
+
+        void* mem()
+        {
+            if (not mapped_data) {
+                map();
+            }
+
+            return mapped_data;
+        }
+    };
+
+    BufferInfo createMemoryBuffer(
         size_t size,
         VkBufferUsageFlags vk_flags,
         VmaMemoryUsage vma_usage);
 
-    void createBufferDescriptor();
-    void getPhysicalMemoryAllocInfo();
+    void createBufferDescriptor(BufferInfo&);
+    void getPhysicalMemoryAllocInfo(BufferInfo&);
+    void copyToBuffer(BufferInfo&, const void* data, size_t size);
+    void copyToBuffer(BufferInfo&, const void* data, Offset offset, Size size);
 
     std::shared_ptr<VulkanDevice> device;
     VmaAllocator allocator;
-    void* mapped_data;
-    VkBuffer vkBuffer;
-    VkDescriptorBufferInfo descriptor;
-    VmaAllocation allocation;
-    VmaAllocationInfo allocation_info;
-    VkMemoryPropertyFlags allocated_memory_properties;
+    BufferInfo buffer;
+    bool is_gpu_buffer;
 };
 
 } // namespace render::memory

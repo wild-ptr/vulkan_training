@@ -1,5 +1,6 @@
 #include "VmaVulkanBuffer.hpp"
 #include <cstring>
+#include <cassert>
 
 namespace render::memory {
 
@@ -11,14 +12,45 @@ VmaVulkanBuffer::VmaVulkanBuffer(
     const VmaMemoryUsage vma_usage)
     : device(std::move(deviceptr))
     , allocator(device->getVmaAllocator())
-    , mapped_data(nullptr)
+    , is_gpu_buffer(vma_usage == VMA_MEMORY_USAGE_GPU_ONLY)
 {
-    createMemoryBuffer(size, vk_flags, vma_usage);
-    copyToBuffer(data, size);
-    createBufferDescriptor();
+    if(is_gpu_buffer)
+    {
+        buffer = createMemoryBuffer(
+                size,
+                vk_flags | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                vma_usage);
+
+        auto stagingBuffer = createMemoryBuffer(
+                size,
+                vk_flags | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VMA_MEMORY_USAGE_CPU_ONLY);
+
+        copyToBuffer(stagingBuffer, data, size);
+
+        device->immediateSubmitBlocking(
+                [&](VkCommandBuffer cmd)
+                {
+                    VkBufferCopy copy = {
+		                .srcOffset = 0,
+		                .dstOffset = 0,
+		                .size = size,
+                    };
+
+		            vkCmdCopyBuffer(cmd, stagingBuffer.vkBuffer, buffer.vkBuffer, 1, &copy);
+                });
+
+        vmaDestroyBuffer(stagingBuffer.allocator, stagingBuffer.vkBuffer, stagingBuffer.allocation);
+    }
+    else
+    {
+        buffer = createMemoryBuffer(size, vk_flags, vma_usage);
+        copyToBuffer(buffer, data, size);
+    }
 }
 
 void VmaVulkanBuffer::copyToBuffer(
+    BufferInfo& buffer,
     const void* transfer_data,
     size_t size)
 {
@@ -27,121 +59,138 @@ void VmaVulkanBuffer::copyToBuffer(
     }
 
     // Truncate to buffer size. We cannot overflow into unallocated space.
-    if (size > allocation_info.size) {
-        dbgE << "Tring to copy more memory into buffer than allocated. Truncating to size." << NEWL;
-        size = allocation_info.size;
+    if (size > buffer.allocation_info.size) {
+        dbgE << "Trying to copy more memory into buffer than allocated. Truncating to size." << NEWL;
+        size = buffer.allocation_info.size;
     }
 
-    // function preserves
-    bool was_previously_mapped = mapped_data;
-    memcpy(mem(), transfer_data, size);
+    // function preserves map state
+    bool was_previously_mapped = buffer.mapped_data;
+    memcpy(buffer.mem(), transfer_data, size);
 
     // If host coherency hasn't been requested, do a manual flush to make writes visible
-    if ((allocated_memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+    if ((buffer.allocated_memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
         // vmaFlushAllocation wants offset and size relative to allocation, not to
         // whole allocated memory.
-        vmaFlushAllocation(allocator, allocation, 0, size);
+        vmaFlushAllocation(buffer.allocator, buffer.allocation, 0, size);
     }
 
     if (not was_previously_mapped) {
-        unmap();
+        buffer.unmap();
+    }
+}
+
+void VmaVulkanBuffer::copyToBuffer(
+    const void* transfer_data,
+    size_t size)
+{
+    if(is_gpu_buffer)
+    {
+        assert(false); // not implemented
+    }
+    copyToBuffer(buffer, transfer_data, size);
+}
+
+// does not check *data size, care
+void VmaVulkanBuffer::copyToBuffer(BufferInfo& buffer, const void* data,
+        Offset offset_packed, Size size_packed)
+{
+    if(is_gpu_buffer)
+    {
+        assert(false); // not implemented
+    }
+
+    auto offset = offset_packed.offset;
+    auto size = size_packed.size;
+
+    if ((not data) or (size == 0)) {
+        return;
+    }
+
+    bool was_previously_mapped = buffer.mapped_data;
+    std::byte* mapped_mem = static_cast<std::byte*>(buffer.mem());
+
+    // out-of-bounds check
+    if (mapped_mem + buffer.allocation_info.size < mapped_mem + offset + size) {
+        throw std::runtime_error("Trying to write out of bounds to buffer with offset and size");
+    }
+
+    memcpy(mapped_mem + offset, data, size);
+
+    if ((buffer.allocated_memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+        vmaFlushAllocation(buffer.allocator, buffer.allocation, 0, size);
+    }
+
+    if (not was_previously_mapped) {
+        buffer.unmap();
     }
 }
 
 // does not check *data size, care
 void VmaVulkanBuffer::copyToBuffer(const void* data, Offset offset_packed, Size size_packed)
 {
-    auto& offset = offset_packed.offset;
-    auto& size = size_packed.size;
-
-    if ((not data) or (size == 0)) {
-        return;
-    }
-
-    bool was_previously_mapped = mapped_data;
-    std::byte* mapped_mem = static_cast<std::byte*>(mem());
-
-    // out-of-bounds check
-    if (mapped_mem + allocation_info.size < mapped_mem + offset + size) {
-        throw std::runtime_error("Trying to write out of bounds to buffer with offset and size");
-    }
-
-    memcpy(mapped_mem + offset, data, size);
-
-    if ((allocated_memory_properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-        vmaFlushAllocation(allocator, allocation, 0, size);
-    }
-
-    if (not was_previously_mapped) {
-        unmap();
-    }
+    copyToBuffer(buffer, data, offset_packed, size_packed);
 }
 
-void VmaVulkanBuffer::createMemoryBuffer(
+VmaVulkanBuffer::BufferInfo VmaVulkanBuffer::createMemoryBuffer(
     size_t size,
     VkBufferUsageFlags vk_flags,
     VmaMemoryUsage vma_usage)
 {
     //allocate vertex buffer
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = vk_flags;
+    VkBufferCreateInfo bufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = vk_flags,
+    };
 
-    VmaAllocationCreateInfo vmaallocInfo = {};
-    vmaallocInfo.usage = vma_usage;
+    VmaAllocationCreateInfo vmaallocInfo = {
+        .usage = vma_usage
+    };
 
+    BufferInfo info{};
     //allocate the buffer and properly bind its memory as well.
     VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo,
-        &vkBuffer,
-        &allocation,
-        &allocation_info));
+        &info.vkBuffer,
+        &info.allocation,
+        &info.allocation_info));
 
-    getPhysicalMemoryAllocInfo();
+    getPhysicalMemoryAllocInfo(info);
+    info.allocator = allocator;
+    createBufferDescriptor(info);
+
+    return info;
 }
 
-void VmaVulkanBuffer::createBufferDescriptor()
+void VmaVulkanBuffer::createBufferDescriptor(BufferInfo& info)
 {
-    descriptor.range = allocation_info.size;
-    descriptor.offset = allocation_info.offset;
-    descriptor.buffer = vkBuffer;
+    info.descriptor.range = info.allocation_info.size;
+    info.descriptor.offset = info.allocation_info.offset;
+    info.descriptor.buffer = info.vkBuffer;
 }
 
 void VmaVulkanBuffer::map()
 {
-    if (mapped_data) {
-        return;
-    }
-
-    VK_CHECK(vmaMapMemory(allocator, getVmaAllocation(), &mapped_data));
+    buffer.map();
 }
 
 void VmaVulkanBuffer::unmap()
 {
-    if (not mapped_data) {
-        return;
-    }
-
-    vmaUnmapMemory(allocator, getVmaAllocation());
-    mapped_data = nullptr; // avoid dangling pointers that are no longer mapped.
+    buffer.unmap();
 }
 
 void* VmaVulkanBuffer::mem()
 {
-    if (not mapped_data) {
-        map();
-    }
-
-    return mapped_data;
+    return buffer.mem();
 }
 
-void VmaVulkanBuffer::getPhysicalMemoryAllocInfo()
+void VmaVulkanBuffer::getPhysicalMemoryAllocInfo(BufferInfo& bufferInfo)
 {
     VmaAllocatorInfo vmaallocator_info;
     vmaGetAllocatorInfo(allocator, &vmaallocator_info);
 
-    allocated_memory_properties = deviceUtils::getMemoryProperties(
-            vmaallocator_info.physicalDevice, allocation_info.memoryType);
+    bufferInfo.allocated_memory_properties = deviceUtils::getMemoryProperties(
+            vmaallocator_info.physicalDevice, bufferInfo.allocation_info.memoryType);
 }
 
 } // namespace render::memory

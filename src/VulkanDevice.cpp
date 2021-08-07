@@ -155,12 +155,61 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
     vkGetDeviceQueue(vkLogicalDevice, getPresentationQueueIndice(), 0, &presentationQueue);
 
     allocator = createVmaAllocator(instance, vkPhysicalDevice, vkLogicalDevice);
+
+    // unsignaled fence
+    const VkFenceCreateInfo fenceInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    };
+
+    VK_CHECK(vkCreateFence(getDevice(), &fenceInfo, nullptr, &uploadContext.uploadFence));
+
+    const VkCommandPoolCreateInfo pi = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .queueFamilyIndex = getGraphicsQueueIndice(),
+    };
+
+    VK_CHECK(vkCreateCommandPool(getDevice(), &pi, nullptr, &uploadContext.uploadCommandPool));
 }
 
 VulkanDevice::~VulkanDevice()
 {
     //if(vkLogicalDevice != VK_NULL_HANDLE)
     //    vkDestroyDevice(vkLogicalDevice, nullptr);
+}
+
+void VulkanDevice::immediateSubmitBlocking(std::function<void(VkCommandBuffer)> func)
+{
+    VkCommandBufferAllocateInfo ai =
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = uploadContext.uploadCommandPool,
+        .commandBufferCount = 1,
+    };
+    VkCommandBuffer cmdb;
+    VK_CHECK(vkAllocateCommandBuffers(getDevice(), &ai, &cmdb));
+
+    VkCommandBufferBeginInfo bi =
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    VK_CHECK(vkBeginCommandBuffer(cmdb, &bi));
+
+    func(cmdb);
+
+    VK_CHECK(vkEndCommandBuffer(cmdb));
+
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmdb
+    };
+    VK_CHECK(vkQueueSubmit(getGraphicsQueue(), 1, &submitInfo, uploadContext.uploadFence));
+
+    vkWaitForFences(getDevice(), 1, &uploadContext.uploadFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(getDevice(), 1, &uploadContext.uploadFence);
+
+    vkResetCommandPool(getDevice(), uploadContext.uploadCommandPool, 0);
 }
 
 namespace deviceUtils {

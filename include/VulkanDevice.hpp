@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <optional>
 #include <vector>
+#include <functional>
 
 namespace render {
 struct QueueFamiliesIndices {
@@ -31,6 +32,7 @@ public:
     VkQueue getGraphicsQueue() const { return graphicsQueue; }
     VkQueue getPresentationQueue() const { return presentationQueue; }
     VmaAllocator getVmaAllocator() const { return allocator; }
+    void immediateSubmitBlocking(std::function<void(VkCommandBuffer)> func);
 
 private:
     VkPhysicalDevice vkPhysicalDevice;
@@ -42,6 +44,12 @@ private:
     VkQueue graphicsQueue;
     VkQueue presentationQueue;
     VmaAllocator allocator;
+
+    struct
+    {
+        VkFence uploadFence;
+        VkCommandPool uploadCommandPool;
+    } uploadContext;
 };
 
 namespace deviceUtils {

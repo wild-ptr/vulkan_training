@@ -4,6 +4,7 @@
 
 #include "VulkanImage.hpp"
 #include "VulkanMacros.hpp"
+#include "VmaVulkanBuffer.hpp"
 
 namespace render::memory {
 
@@ -38,7 +39,9 @@ bool VulkanImage::hasDepthOrStencil()
     return hasDepth() or hasStencil();
 }
 
-VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator)
+VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<VulkanDevice> deviceptr)
+    : device(std::move(deviceptr))
+    , creationData(ci)
 {
     format = ci.format;
 
@@ -71,14 +74,15 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
         imgCi.mipLevels = ci.mipLevels;
         imgCi.arrayLayers = ci.layerCount;
         imgCi.samples = ci.imageSampleCount;
-        imgCi.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imgCi.tiling = ci.tiling;
         imgCi.usage = ci.usage;
+        imgCi.initialLayout = ci.initialLayout;
 
         return imgCi;
     }();
 
     VmaAllocationCreateInfo vmaAllocInfo { .usage = VMA_MEMORY_USAGE_GPU_ONLY };
-    VK_CHECK(vmaCreateImage(allocator, &imageCi, &vmaAllocInfo, &vkImage, &allocation, &allocationInfo));
+    VK_CHECK(vmaCreateImage(device->getVmaAllocator(), &imageCi, &vmaAllocInfo, &vkImage, &allocation, &allocationInfo));
 
     subresourceRange = [aspectMask, &ci]() {
         VkImageSubresourceRange srr {};
@@ -102,10 +106,73 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator
         return ivci;
     }();
 
-    VmaAllocatorInfo allocInfo;
-    vmaGetAllocatorInfo(allocator, &allocInfo);
+    VK_CHECK(vkCreateImageView(device->getDevice(), &imageViewCi, nullptr, &vkImageView));
+}
 
-    VK_CHECK(vkCreateImageView(allocInfo.device, &imageViewCi, nullptr, &vkImageView));
+VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<VulkanDevice> deviceptr,
+            const void* data, size_t size)
+    : VulkanImage(ci, std::move(deviceptr))
+{
+    transitionLayoutBarrier(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyToImageStaging(data, size);
+    transitionLayoutBarrier(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+// this will need changes to subresourceRange element. Or will it?
+void VulkanImage::transitionLayoutBarrier(VkImageLayout from, VkImageLayout to)
+{
+    assert(device and not swapchainImage);
+
+    device->immediateSubmitBlocking(
+            [from, to, this](VkCommandBuffer cmd)
+            {
+		        VkImageMemoryBarrier imageBarrier_toTransfer = {};
+		        imageBarrier_toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+		        imageBarrier_toTransfer.oldLayout = from;
+		        imageBarrier_toTransfer.newLayout = to;
+		        imageBarrier_toTransfer.image = getImage();
+		        imageBarrier_toTransfer.subresourceRange = getSubresourceRange();
+
+		        imageBarrier_toTransfer.srcAccessMask = 0;
+		        imageBarrier_toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		        vkCmdPipelineBarrier(cmd,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    0, 0, nullptr, 0, nullptr, 1, &imageBarrier_toTransfer);
+            });
+}
+
+void VulkanImage::copyToImageStaging(const void* data, size_t size)
+{
+    assert(device and not swapchainImage);
+    VmaVulkanBuffer stagingBuffer(device, data, size,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    // This does not understand mipmaps yet. Neither do i know how to use them in vulkan yet.
+    device->immediateSubmitBlocking(
+            [stagingBuffer, this](VkCommandBuffer cmd)
+            {
+                VkBufferImageCopy copyRegion = {};
+	            copyRegion.bufferOffset = 0;
+	            copyRegion.bufferRowLength = 0;
+	            copyRegion.bufferImageHeight = 0;
+
+	            copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	            copyRegion.imageSubresource.mipLevel = 0;
+	            copyRegion.imageSubresource.baseArrayLayer = 0;
+	            copyRegion.imageSubresource.layerCount = 1;
+	            copyRegion.imageExtent = VkExtent3D{
+                    .width = creationData.width,
+                    .height = creationData.height,
+                    .depth = 1
+                    };
+
+	                //copy the buffer into the image
+	            vkCmdCopyBufferToImage(cmd, stagingBuffer.getVkBuffer(), getImage(),
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+            });
 }
 
 // just a wrapper for externally created vkImages, like we get from the swapchain
@@ -118,7 +185,7 @@ VulkanImage::VulkanImage(
     , vkImageView(imageView)
     , format(format)
     , subresourceRange(range)
-    , wrappedAllocatedImage(true)
+    , swapchainImage(true)
 {
 }
 

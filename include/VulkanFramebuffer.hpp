@@ -2,9 +2,11 @@
 #define GLFW_INCLUDE_VULKAN
 #include "VulkanImage.hpp"
 #include "VulkanSwapchain.hpp"
+#include "VulkanDevice.hpp"
 #include "vk_mem_alloc.h"
 #include <GLFW/glfw3.h>
 #include <optional>
+#include <memory>
 
 namespace render {
 
@@ -26,7 +28,7 @@ struct FramebufferAttachmentInfo {
 class VulkanFramebuffer {
 public:
     VulkanFramebuffer(
-        VmaAllocator allocator,
+        std::shared_ptr<VulkanDevice> device,
         std::vector<FramebufferAttachmentInfo> ci,
         size_t numOfFramebuffers);
 
@@ -34,7 +36,7 @@ public:
     // Implicitly creates a depth attachment. Per swapchain image now but this can change in the
     // future, as all we need is a single depth attachment.
     VulkanFramebuffer(
-        VmaAllocator allocator,
+        std::shared_ptr<VulkanDevice> device,
         const VulkanSwapchain& swapchain,
         bool createDepthAttachment);
 
@@ -67,7 +69,7 @@ private:
         EFramebufferAttachmentType type;
     };
 
-    VmaAllocator allocator;
+    std::shared_ptr<VulkanDevice> device;
     std::vector<Framebuffer> framebuffers;
     std::vector<AttachmentInfo> attachmentsInfo;
 

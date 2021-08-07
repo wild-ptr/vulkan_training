@@ -261,7 +261,7 @@ void VulkanApplication::initVulkan()
     triangle2 = loadTheThing(vkDevice);
 
     vkSwapchain = VulkanSwapchain(*vkDevice, surface, window);
-    vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice->getVmaAllocator(), vkSwapchain, true);
+    vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice, vkSwapchain, true);
 
     FramebufferAttachmentInfo inf = {
         .ci = {
@@ -276,7 +276,7 @@ void VulkanApplication::initVulkan()
     };
 
     // just to test new framebuffer module.
-    auto framebuf = VulkanFramebuffer(vkDevice->getVmaAllocator(), { inf }, 3);
+    auto framebuf = VulkanFramebuffer(vkDevice, { inf }, 3);
 
     createGraphicsPipeline();
     two_triangles = std::make_unique<Renderable>(makeRenderableFromMeshies(vkDevice, pipeline));

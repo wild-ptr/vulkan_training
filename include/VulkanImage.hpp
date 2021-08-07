@@ -3,6 +3,7 @@
 #include "VulkanDevice.hpp"
 #include "vk_mem_alloc.h"
 #include <GLFW/glfw3.h>
+#include <memory>
 
 namespace render::memory {
 
@@ -13,13 +14,22 @@ struct VulkanImageCreateInfo {
     VkFormat format;
     VkImageUsageFlags usage;
     VkSampleCountFlagBits imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
+    VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+    VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 };
 
 class VulkanImage {
 public:
-    VulkanImage(const VulkanImageCreateInfo& ci, VmaAllocator allocator);
 
-    // ctor for wrapping previously allocated images.
+    VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<VulkanDevice> device);
+    VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<VulkanDevice> device,
+            const void* data, size_t size);
+    //VulkanImage(const VulkanImageCreateInfo& ci,
+    //        VmaAllocator allocator,
+    //        const void* data = nullptr,
+    //        size_t data_size = 0);
+
+    // ctor for wrapping previously allocated images (swapchain)
     VulkanImage(VkImage image, VkImageView imageView, VkFormat format, VkImageSubresourceRange range);
     //~VulkanImage(); // @TODO
     bool hasDepth();
@@ -32,10 +42,10 @@ public:
     VkImageSubresourceRange getSubresourceRange() { return subresourceRange; }
 
 private:
-    // will be used to change dtor behaviour to noop
-    bool wrappedAllocatedImage { false };
+    void transitionLayoutBarrier(VkImageLayout from, VkImageLayout to);
+    void copyToImageStaging(const void* data, size_t size);
 
-    VmaAllocator allocator { VK_NULL_HANDLE };
+    std::shared_ptr<VulkanDevice> device;
     VmaAllocation allocation { VK_NULL_HANDLE };
     VmaAllocationInfo allocationInfo {};
 
@@ -43,6 +53,8 @@ private:
     VkImageView vkImageView;
     VkFormat format;
     VkImageSubresourceRange subresourceRange;
+    VulkanImageCreateInfo creationData{};
+    bool swapchainImage{false};
 };
 
 } // namespace render::memory

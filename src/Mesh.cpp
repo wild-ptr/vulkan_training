@@ -9,7 +9,7 @@ Mesh::Mesh(const std::vector<Vertex>& mesh_data, std::shared_ptr<VulkanDevice> d
     , allocator(device->getVmaAllocator())
     , vertices(mesh_data.size())
     , vertex_buffer(device, mesh_data,
-          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
+          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY)
 {
 }
 
@@ -18,7 +18,7 @@ Mesh::Mesh(const std::vector<Vertex>&& mesh_data, std::shared_ptr<VulkanDevice> 
     , allocator(device->getVmaAllocator())
     , vertices(mesh_data.size())
     , vertex_buffer(device, mesh_data,
-          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU)
+          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY)
 {
 }
 

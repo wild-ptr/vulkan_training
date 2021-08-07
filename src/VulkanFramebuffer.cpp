@@ -6,9 +6,8 @@
 namespace render {
 
 // this creates presentation framebuffers, one per swapchain image.
-// Doesnt work yet as we are getting validation layer errors about layercount from subresource range.
-VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, const VulkanSwapchain& swapchain, bool createDepthAttachment)
-    : allocator(allocator)
+VulkanFramebuffer::VulkanFramebuffer(std::shared_ptr<VulkanDevice> deviceptr, const VulkanSwapchain& swapchain, bool createDepthAttachment)
+    : device(std::move(deviceptr))
 {
     width = swapchain.getSwapchainExtent().width;
     height = swapchain.getSwapchainExtent().height;
@@ -68,8 +67,8 @@ VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, const VulkanSwapcha
     createFramebuffer();
 }
 
-VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, std::vector<FramebufferAttachmentInfo> ci, size_t numOfFramebuffers)
-    : allocator(allocator)
+VulkanFramebuffer::VulkanFramebuffer(std::shared_ptr<VulkanDevice> deviceptr, std::vector<FramebufferAttachmentInfo> ci, size_t numOfFramebuffers)
+    : device(std::move(deviceptr))
 {
     width = ci[0].ci.width;
     height = ci[0].ci.height;
@@ -82,7 +81,7 @@ VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, std::vector<Framebu
         })); // ill keep this untill i need different sizes.
 
     for (auto& attachmentInfo : ci) {
-        auto image = memory::VulkanImage(attachmentInfo.ci, allocator);
+        auto image = memory::VulkanImage(attachmentInfo.ci, device);
 
         AttachmentInfo information = {
             .description = {
@@ -103,7 +102,7 @@ VulkanFramebuffer::VulkanFramebuffer(VmaAllocator allocator, std::vector<Framebu
     for (size_t framebufferIdx = 0; framebufferIdx < numOfFramebuffers; ++framebufferIdx) {
         Framebuffer framebuffer {};
         for (auto& attachmentInfo : ci) {
-            auto image = memory::VulkanImage(attachmentInfo.ci, allocator);
+            auto image = memory::VulkanImage(attachmentInfo.ci, device);
             framebuffer.attachments.emplace_back(std::move(image));
         }
         framebuffers.emplace_back(framebuffer);
@@ -234,10 +233,8 @@ void VulkanFramebuffer::createRenderPass()
     //renderPassInfo.dependencyCount = 2;
     //renderPassInfo.pDependencies = dependencies.data();
 
-    VmaAllocatorInfo allocInfo;
-    vmaGetAllocatorInfo(allocator, &allocInfo);
 
-    VK_CHECK(vkCreateRenderPass(allocInfo.device, &renderPassInfo, nullptr, &renderPass));
+    VK_CHECK(vkCreateRenderPass(device->getDevice(), &renderPassInfo, nullptr, &renderPass));
 }
 
 void VulkanFramebuffer::createFramebuffer()
@@ -278,9 +275,7 @@ void VulkanFramebuffer::createFramebuffer()
             return ci;
         }();
 
-        VmaAllocatorInfo allocInfo;
-        vmaGetAllocatorInfo(allocator, &allocInfo);
-        VK_CHECK(vkCreateFramebuffer(allocInfo.device, &framebufferCi, nullptr, &framebufferStruct.vkFramebuffer));
+        VK_CHECK(vkCreateFramebuffer(device->getDevice(), &framebufferCi, nullptr, &framebufferStruct.vkFramebuffer));
     }
 }
 
@@ -296,7 +291,7 @@ memory::VulkanImage VulkanFramebuffer::createDepthAttachment()
         .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
     };
 
-    return memory::VulkanImage(ci, allocator);
+    return memory::VulkanImage(ci, device);
 }
 
 VkAttachmentDescription VulkanFramebuffer::getAttachmentDescription(EFramebufferAttachmentType type)
