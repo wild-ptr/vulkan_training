@@ -10,11 +10,19 @@ class UniqueVkHandle
 {
 public:
     UniqueVkHandle(T data) : data(std::move(data)) {}
-    UniqueVkHandle(const UniqueHandle&) = delete;
-    UniqueVkHandle(UniqueHandle&& other)
+    UniqueVkHandle(const UniqueVkHandle&) = delete;
+    UniqueVkHandle(UniqueVkHandle&& other)
         : data(std::move(other.data))
     {
         other.data = VK_NULL_HANDLE;
+    }
+
+    UniqueVkHandle& operator=(const UniqueVkHandle&) = delete;
+    UniqueVkHandle& operator=(UniqueVkHandle&& other)
+    {
+        data = other.data;
+        other.data = VK_NULL_HANDLE;
+        return *this;
     }
 
     operator T()

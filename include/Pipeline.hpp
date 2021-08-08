@@ -79,7 +79,8 @@ public:
             }();
         }
 
-        // Right now all set layouts are defined by vertex shader.
+        // Right now all set layouts are defined by vertex shader. All stages can use the UBO's, but they
+        // all need to be defined in vertex shader.
         auto it = std::find_if(std::cbegin(shaders), std::cend(shaders),
             [](const auto& shader) {
                 return shader.getShaderType() == VK_SHADER_STAGE_VERTEX_BIT;

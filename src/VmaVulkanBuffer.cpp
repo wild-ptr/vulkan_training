@@ -155,8 +155,8 @@ VmaVulkanBuffer::BufferInfo VmaVulkanBuffer::createMemoryBuffer(
         &info.allocation,
         &info.allocation_info));
 
-    getPhysicalMemoryAllocInfo(info);
     info.allocator = allocator;
+    getPhysicalMemoryAllocInfo(info);
     createBufferDescriptor(info);
 
     return info;
@@ -187,7 +187,7 @@ void* VmaVulkanBuffer::mem()
 void VmaVulkanBuffer::getPhysicalMemoryAllocInfo(BufferInfo& bufferInfo)
 {
     VmaAllocatorInfo vmaallocator_info;
-    vmaGetAllocatorInfo(allocator, &vmaallocator_info);
+    vmaGetAllocatorInfo(bufferInfo.allocator, &vmaallocator_info);
 
     bufferInfo.allocated_memory_properties = deviceUtils::getMemoryProperties(
             vmaallocator_info.physicalDevice, bufferInfo.allocation_info.memoryType);

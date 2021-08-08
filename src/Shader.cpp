@@ -142,6 +142,18 @@ namespace {
         }();
     }
 
+    // awful hack so i can have one UBO shared by all stages.
+    void addAllGraphicsBitToBindings(std::vector<render::DescriptorSetLayoutData>& sets)
+    {
+        for(auto& set : sets)
+        {
+            for(auto& binding : set.bindings)
+            {
+                binding.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS;
+            }
+        }
+    }
+
 } // anonymous namespace
 
 Shader::Shader(VkDevice device, const std::string& path, EShaderType type)
@@ -158,6 +170,8 @@ Shader::Shader(VkDevice device, const std::string& path, EShaderType type)
 
     createInfo = makeShaderCreateInfo(type, *shaderModule);
     setLayoutData = reflectDescriptorSets(vShaderCode);
+    addAllGraphicsBitToBindings(setLayoutData);
+
     descriptorSetLayouts = createDescriptorSetLayouts(device, setLayoutData);
 }
 

@@ -122,6 +122,7 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<Vulkan
 void VulkanImage::transitionLayoutBarrier(VkImageLayout from, VkImageLayout to)
 {
     assert(device and not swapchainImage);
+    assert(creationData.usage & (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
 
     device->immediateSubmitBlocking(
             [from, to, this](VkCommandBuffer cmd)
@@ -147,6 +148,8 @@ void VulkanImage::transitionLayoutBarrier(VkImageLayout from, VkImageLayout to)
 void VulkanImage::copyToImageStaging(const void* data, size_t size)
 {
     assert(device and not swapchainImage);
+    assert(creationData.usage & (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
+
     VmaVulkanBuffer stagingBuffer(device, data, size,
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
