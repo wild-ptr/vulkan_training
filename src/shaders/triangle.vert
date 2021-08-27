@@ -8,7 +8,6 @@ layout (location = 3) in vec2 vTexCoords;
 
 // test one
 layout(binding = 0, set = 0) uniform UniformBufferObject {
-    mat4 model;
     mat4 view;
     mat4 proj;
 } ubo;

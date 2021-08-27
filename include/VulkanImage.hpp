@@ -21,14 +21,9 @@ struct VulkanImageCreateInfo {
 
 class VulkanImage {
 public:
-
     VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<VulkanDevice> device);
     VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<VulkanDevice> device,
             const void* data, size_t size);
-    //VulkanImage(const VulkanImageCreateInfo& ci,
-    //        VmaAllocator allocator,
-    //        const void* data = nullptr,
-    //        size_t data_size = 0);
 
     // ctor for wrapping previously allocated images (swapchain)
     VulkanImage(VkImage image, VkImageView imageView, VkFormat format, VkImageSubresourceRange range);
@@ -41,6 +36,7 @@ public:
     VkImageView getImageView() { return vkImageView; }
     VkFormat getImageFormat() { return format; }
     VkImageSubresourceRange getSubresourceRange() { return subresourceRange; }
+    const VulkanImageCreateInfo& getCreationData() { return creationData; }
 
 private:
     void transitionLayoutBarrier(VkImageLayout from, VkImageLayout to);

@@ -11,6 +11,7 @@
 #include "VulkanInstance.hpp"
 #include "VulkanSwapchain.hpp"
 #include "Renderable.hpp"
+#include "TextureManager.hpp"
 
 namespace render {
 
@@ -47,6 +48,7 @@ private:
     std::shared_ptr<VulkanDevice> vkDevice;
     VulkanSwapchain vkSwapchain;
     VulkanFramebuffer vkSwapchainFramebuffer;
+    std::shared_ptr<memory::TextureManager> textureManager;
 
     Mesh triangle;
     Mesh triangle2;

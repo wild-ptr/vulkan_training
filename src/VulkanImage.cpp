@@ -47,13 +47,12 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& ci, std::shared_ptr<Vulkan
 
     VkImageAspectFlags aspectMask = 0;
 
-    if (ci.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+    if (ci.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
         aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     }
-
     else if (ci.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
         if (hasDepth()) {
-            aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; //VK_IMAGE_ASPECT_COLOR_BIT;
+            aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         }
         if (hasStencil()) {
             aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -154,6 +153,7 @@ void VulkanImage::copyToImageStaging(const void* data, size_t size)
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
     // This does not understand mipmaps yet. Neither do i know how to use them in vulkan yet.
+    // But i assume i will have to allocate 1/3 more bytes and use some vkCmds to create mip levels.
     device->immediateSubmitBlocking(
             [stagingBuffer, this](VkCommandBuffer cmd)
             {

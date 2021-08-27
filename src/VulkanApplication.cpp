@@ -281,6 +281,9 @@ void VulkanApplication::initVulkan()
     createGraphicsPipeline();
     two_triangles = std::make_unique<Renderable>(makeRenderableFromMeshies(vkDevice, pipeline));
 
+    textureManager = std::make_shared<memory::TextureManager>(vkDevice);
+    textureManager->loadTexture("assets/bricks.jpg");
+
     createCommandPool();
     createCommandBuffers();
     recordCommandBuffers();
