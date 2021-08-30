@@ -10,6 +10,12 @@
 
 namespace render {
 
+// Smol test.
+struct MeshPushConstantData
+{
+    int texture_id;
+};
+
 class Mesh {
 public:
     Mesh(const std::vector<Vertex>& mesh_data, std::shared_ptr<VulkanDevice> device);
@@ -26,6 +32,7 @@ private:
     VmaAllocator allocator;
     size_t vertices;
     memory::VmaVulkanBuffer vertex_buffer;
+    MeshPushConstantData data;
 };
 
 } // namespace render

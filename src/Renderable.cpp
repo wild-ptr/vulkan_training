@@ -1,6 +1,7 @@
 #include "Renderable.hpp"
 #include "EDescriptorSets.hpp"
 
+
 namespace render {
 Renderable::Renderable(
         std::shared_ptr<VulkanDevice> deviceptr,
@@ -74,6 +75,7 @@ void Renderable::updateUniforms(RenderableUbo ubo, size_t bufferIdx)
 
 void Renderable::cmdBindSetsDrawMeshes(VkCommandBuffer commandBuffer, uint32_t frameIndex)
 {
+    assert(frameIndex < descriptorSets.size());
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getHandle());
 
     vkCmdBindDescriptorSets(
@@ -88,7 +90,6 @@ void Renderable::cmdBindSetsDrawMeshes(VkCommandBuffer commandBuffer, uint32_t f
     {
         mesh.cmdDraw(commandBuffer);
     }
-
 }
 
 } // namespace render

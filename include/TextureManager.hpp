@@ -1,4 +1,5 @@
 // This will be used to load textures and provide indices for textures.
+#pragma once
 #include "VulkanDevice.hpp"
 #include "VulkanImage.hpp"
 
@@ -22,10 +23,7 @@ constexpr size_t TEXTURES_MAX = 4096;
 // will be used to write to per-frame descriptor set.
 struct BindingInformationTextures
 {
-    // bindings should be removed as we will get this from reflection data.
-    VkDescriptorSetLayoutBinding setLayoutBindingTextureArray{};
-    VkDescriptorSetLayoutBinding setLayoutBindingSampler{};
-
+    std::vector<VkDescriptorPoolSize> poolSizes;
     std::array<VkDescriptorImageInfo, TEXTURES_MAX> descriptors{};
     VkDescriptorImageInfo samplerDescriptor{};
 };
@@ -38,7 +36,9 @@ public:
     // returns texture indice. Unloading shall not be supported for now.
     // If already loaded, get indice.
     size_t loadTexture(const std::string& path);
-    const VkDescriptorSetLayoutBinding& getBindingInformation();
+    const BindingInformationTextures& getBindingInformation() { return binding_info; }
+    void fillDescriptorSet(VkDescriptorSet);
+
 
 private:
     void createPlaceholderImage();
@@ -57,9 +57,8 @@ private:
     std::shared_mutex index_map_mut;
     std::map<std::string, size_t> index_map;
     std::array<std::unique_ptr<VulkanImage>, TEXTURES_MAX> textures;
-
     VkSampler sampler;
+
     BindingInformationTextures binding_info;
 };
-
 } // namespace render::memory

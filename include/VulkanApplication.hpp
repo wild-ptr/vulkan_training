@@ -12,6 +12,7 @@
 #include "VulkanSwapchain.hpp"
 #include "Renderable.hpp"
 #include "TextureManager.hpp"
+#include "PerFrameUniformSystem.hpp"
 
 namespace render {
 
@@ -55,6 +56,8 @@ private:
     std::unique_ptr<Renderable> two_triangles;
 
     std::shared_ptr<Pipeline> pipeline;
+
+    std::shared_ptr<memory::PerFrameUniformSystem> perFrameData;
 
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;

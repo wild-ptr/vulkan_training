@@ -37,6 +37,10 @@ render::Mesh loadTriangleAsMesh(std::shared_ptr<render::VulkanDevice> device)
     mesh_data[1].surf_normals = { 0.f, 1.f, 0.0f };
     mesh_data[2].surf_normals = { 0.f, 0.f, 1.0f };
 
+    mesh_data[0].tex_coords = { 0.0f, 0.0f };
+    mesh_data[1].tex_coords = { 0.0f, 1.0f };
+    mesh_data[2].tex_coords = { 1.0f, 1.0f };
+
     return render::Mesh(mesh_data, std::move(device));
 }
 
@@ -53,6 +57,10 @@ render::Mesh loadTheThing(std::shared_ptr<render::VulkanDevice> device)
     mesh_data[0].surf_normals = { 1.f, 0.f, 1.0f };
     mesh_data[1].surf_normals = { 0.f, 1.f, 1.0f };
     mesh_data[2].surf_normals = { 1.f, 0.f, 1.0f };
+
+    mesh_data[0].tex_coords = { 0.0f, 0.0f };
+    mesh_data[1].tex_coords = { 0.0f, 1.0f };
+    mesh_data[2].tex_coords = { 1.0f, 1.0f };
 
     return render::Mesh(mesh_data, std::move(device));
 }
@@ -211,6 +219,7 @@ void VulkanApplication::recordCommandBuffers()
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+        perFrameData->bind(commandBuffers[i], 0);
         two_triangles->cmdBindSetsDrawMeshes(commandBuffers[i], 0);
 
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -283,6 +292,8 @@ void VulkanApplication::initVulkan()
 
     textureManager = std::make_shared<memory::TextureManager>(vkDevice);
     textureManager->loadTexture("assets/bricks.jpg");
+
+    perFrameData = std::make_shared<memory::PerFrameUniformSystem>(vkDevice, textureManager, pipeline);
 
     createCommandPool();
     createCommandBuffers();

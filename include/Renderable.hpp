@@ -12,7 +12,7 @@
 namespace render {
 
 // of course we will make renderable templated in the future to allow plugging in specific UBO's
-// for different pipelines.
+// for different pipelines. But its okay for now.
 struct RenderableUbo {
     glm::mat4 model;
     float times;

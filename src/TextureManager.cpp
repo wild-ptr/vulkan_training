@@ -2,6 +2,7 @@
 #include "Logger.hpp"
 #include "stb_image.h"
 #include <cassert>
+#include "Constants.hpp"
 
 namespace render::memory
 {
@@ -63,23 +64,16 @@ void TextureManager::initialBindingInformationCreation()
 {
     assert(placeholder_image);
 
-    // this should be removed as we will get this from reflection data.
-    binding_info.setLayoutBindingTextureArray =
+    binding_info.poolSizes =
     {
-        .binding = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-        .descriptorCount = TEXTURES_MAX,
-        .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-        .pImmutableSamplers = nullptr,
-    };
-
-    binding_info.setLayoutBindingSampler =
-    {
-        .binding = 0,
-        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-        .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-        .pImmutableSamplers = nullptr,
+        {
+            .type = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .descriptorCount = consts::maxFramesInFlight,
+        },
+        {
+            .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .descriptorCount = consts::maxFramesInFlight * TEXTURES_MAX,
+        }
     };
 
     for (uint32_t i = 0; i < TEXTURES_MAX; ++i)
@@ -206,6 +200,37 @@ void TextureManager::generateDescriptorEntry(size_t texture_index)
 {
     assert(texture_index < TEXTURES_MAX);
     binding_info.descriptors[texture_index].imageView = textures[texture_index]->getImageView();
+}
+
+// Unsafe, i should just mutex it all. Torn reads are possible here because we can be mangling
+// with descriptors while doing vkUpdateDescriptorSets. Too bad!
+void TextureManager::fillDescriptorSet(VkDescriptorSet descriptorSet)
+{
+    // @TODO: This should all be done as one call to UpdateDescriptorSets.
+
+    VkWriteDescriptorSet wds_tex_array = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = consts::perFrame_textureArrayBinding,
+        .dstArrayElement = 0,
+        .descriptorCount = TEXTURES_MAX,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .pImageInfo = binding_info.descriptors.data(),
+    };
+
+    vkUpdateDescriptorSets(device->getDevice(), 1, &wds_tex_array, 0, nullptr);
+
+    VkWriteDescriptorSet wds_sampler = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = consts::perFrame_textureSamplerBinding,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+        .pImageInfo = &binding_info.samplerDescriptor,
+    };
+
+    vkUpdateDescriptorSets(device->getDevice(), 1, &wds_sampler, 0, nullptr);
 }
 
 } // namespace render::memory
