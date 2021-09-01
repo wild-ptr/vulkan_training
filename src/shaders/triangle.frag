@@ -18,7 +18,7 @@ layout(binding = 0, set = 1) uniform UboPerObject
 void main()
 {
     //outColor = vec4(fragColor.x * ubosek.time/5, fragColor.yz / ubosek.time , 1.0);
-    vec4 tex = texture(sampler2D(textures[0], samp), texCoords);
+    vec4 tex = texture(sampler2D(textures[12], samp), texCoords);
     outColor = vec4(tex.r, tex.gb * ubosek.time/3, tex.a);
 
 }

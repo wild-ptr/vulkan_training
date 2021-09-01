@@ -54,19 +54,22 @@ namespace {
 
         std::vector<DescriptorSetLayoutData> set_layouts(sets.size(), DescriptorSetLayoutData {});
 
-        for (size_t i_set = 0; i_set < sets.size(); ++i_set) {
+        for (size_t i_set = 0; i_set < sets.size(); ++i_set)
+        {
             const SpvReflectDescriptorSet& refl_set = *(sets[i_set]);
             DescriptorSetLayoutData& layout = set_layouts[i_set];
             layout.bindings.resize(refl_set.binding_count);
 
-            for (uint32_t i_binding = 0; i_binding < refl_set.binding_count; ++i_binding) {
+            for (uint32_t i_binding = 0; i_binding < refl_set.binding_count; ++i_binding)
+            {
                 const SpvReflectDescriptorBinding& refl_binding = *(refl_set.bindings[i_binding]);
                 VkDescriptorSetLayoutBinding& layout_binding = layout.bindings[i_binding];
                 layout_binding.binding = refl_binding.binding;
                 layout_binding.descriptorType = static_cast<VkDescriptorType>(refl_binding.descriptor_type);
                 layout_binding.descriptorCount = 1;
 
-                for (uint32_t i_dim = 0; i_dim < refl_binding.array.dims_count; ++i_dim) {
+                for (uint32_t i_dim = 0; i_dim < refl_binding.array.dims_count; ++i_dim)
+                {
                     layout_binding.descriptorCount *= refl_binding.array.dims[i_dim];
                 }
 
@@ -95,6 +98,36 @@ namespace {
 
         spvReflectDestroyShaderModule(&module);
         return set_layouts;
+    }
+
+    // only one push constant block is supported.
+    VkPushConstantRange reflectPushConstants(const std::vector<char>& bytecode)
+    {
+        SpvReflectShaderModule module = {};
+        SpvReflectResult result = spvReflectCreateShaderModule(bytecode.size(), bytecode.data(), &module);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        uint32_t count = 0;
+        result = spvReflectEnumeratePushConstantBlocks(&module, &count, NULL);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+        assert(count < 2);
+
+        if(count == 0)
+            return {};
+
+        SpvReflectBlockVariable* reflection_data;
+        result = spvReflectEnumeratePushConstantBlocks(&module, &count, &reflection_data);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        VkPushConstantRange ret =
+        {
+            .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+            .offset = reflection_data->offset,
+            .size = reflection_data->size,
+        };
+
+        spvReflectDestroyShaderModule(&module);
+        return ret;
     }
 
     VkShaderModule createShaderModule(const std::vector<char>& code, VkDevice device)
@@ -153,7 +186,6 @@ namespace {
             }
         }
     }
-
 } // anonymous namespace
 
 Shader::Shader(VkDevice device, const std::string& path, EShaderType type)
@@ -170,6 +202,7 @@ Shader::Shader(VkDevice device, const std::string& path, EShaderType type)
 
     createInfo = makeShaderCreateInfo(type, *shaderModule);
     setLayoutData = reflectDescriptorSets(vShaderCode);
+    pushConstantRange = reflectPushConstants(vShaderCode);
     addAllGraphicsBitToBindings(setLayoutData);
 
     descriptorSetLayouts = createDescriptorSetLayouts(device, setLayoutData);
@@ -224,6 +257,11 @@ const std::vector<VkDescriptorSetLayout>& Shader::getReflectedDescriptorSetLayou
 VkShaderStageFlagBits Shader::getShaderType() const
 {
     return shaderType;
+}
+
+VkPushConstantRange Shader::getPushConstantRange() const
+{
+    return pushConstantRange;
 }
 
 } // namespace render

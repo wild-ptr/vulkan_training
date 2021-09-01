@@ -16,19 +16,12 @@ struct image_data
 	    image = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
         channels = 4; // we force rgba textures. For RGB textures A is forced to 255
 
-        // I think stbi_image does it by itself.
-        //for(size_t i = 0; i < size; i += 4)
-        //{
-        //    image[i + 3] = 255;
-        //}
-
         size = width * height * channels;
 
         if(image)
         {
             valid = true;
         }
-
     }
 
     ~image_data()
@@ -87,7 +80,7 @@ void TextureManager::initialBindingInformationCreation()
     binding_info.samplerDescriptor.imageView = VK_NULL_HANDLE;
 }
 
-// a plain yellow texture will do.
+// a yellow - red stripped texture will do.
 void TextureManager::createPlaceholderImage()
 {
     dbgI << "Creating placeholder image for out-of-bounds texture accesses..." << NEWL;
@@ -105,6 +98,12 @@ void TextureManager::createPlaceholderImage()
         pixel.g = 255;
         pixel.b = 0;
         pixel.a = 255;
+    }
+
+    for(size_t i = 0; i < dimensions * dimensions; ++i)
+    {
+        if(i % 2 == 0)
+        texture_data[i].g = 0;
     }
 
     VulkanImageCreateInfo ci =
@@ -136,8 +135,10 @@ void TextureManager::createSampler()
 	    info.addressModeV = samplerAddressMode;
 	    info.addressModeW = samplerAddressMode;
 
+        info.anisotropyEnable = VK_TRUE;
+        info.maxAnisotropy = 16.0;
 	    return info;
-    }(VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    }(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
     vkCreateSampler(device->getDevice(), &ci, nullptr, &sampler);
 }
@@ -207,7 +208,6 @@ void TextureManager::generateDescriptorEntry(size_t texture_index)
 void TextureManager::fillDescriptorSet(VkDescriptorSet descriptorSet)
 {
     // @TODO: This should all be done as one call to UpdateDescriptorSets.
-
     VkWriteDescriptorSet wds_tex_array = {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptorSet,

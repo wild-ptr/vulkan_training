@@ -37,12 +37,21 @@ Pipeline& Pipeline::operator=(Pipeline&& rhs)
 void Pipeline::createPipelineLayout(const Shader& shader)
 {
     const auto& descriptorSetLayouts = shader.getReflectedDescriptorSetLayouts();
+    const auto& pushConstantRange = shader.getPushConstantRange();
 
-    const auto pipelineLayoutInfo = [&descriptorSetLayouts]() {
+    const auto pipelineLayoutInfo = [&descriptorSetLayouts, &pushConstantRange]() {
         VkPipelineLayoutCreateInfo pli {};
+
         pli.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pli.setLayoutCount = descriptorSetLayouts.size();
         pli.pSetLayouts = descriptorSetLayouts.data();
+
+        if(pushConstantRange.size > 0)
+        {
+            pli.pPushConstantRanges = &pushConstantRange;
+            pli.pushConstantRangeCount = 1;
+        }
+
         return pli;
     }();
 

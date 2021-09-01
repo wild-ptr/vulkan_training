@@ -16,6 +16,11 @@ layout(binding = 0, set = 1) uniform UboPerObject
     float time;
 } ubosek;
 
+layout( push_constant ) uniform constants
+{
+	int texture_idx;
+} PushConstants;
+
 layout (location = 0) out vec3 fragColor;
 layout (location = 1) out vec2 texCoords;
 
