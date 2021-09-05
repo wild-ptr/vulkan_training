@@ -12,6 +12,7 @@
 #include "VulkanSwapchain.hpp"
 #include "Renderable.hpp"
 #include "TextureManager.hpp"
+#include "AssetLoader.hpp"
 #include "PerFrameUniformSystem.hpp"
 
 namespace render {
@@ -35,7 +36,7 @@ private:
 
     void drawFrame();
 
-    // members
+    // downright retarded.
     const size_t WIDTH = 1024;
     const size_t HEIGHT = 768;
 
@@ -50,14 +51,11 @@ private:
     VulkanSwapchain vkSwapchain;
     VulkanFramebuffer vkSwapchainFramebuffer;
     std::shared_ptr<memory::TextureManager> textureManager;
-
-    Mesh triangle;
-    Mesh triangle2;
-    std::unique_ptr<Renderable> two_triangles;
-
+    std::shared_ptr<AssetLoader> assetLoader;
     std::shared_ptr<Pipeline> pipeline;
-
     std::shared_ptr<memory::PerFrameUniformSystem> perFrameData;
+
+    std::shared_ptr<Renderable> to_render_test;
 
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;

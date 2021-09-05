@@ -18,15 +18,17 @@ layout(binding = 0, set = 1) uniform UboPerObject
 
 layout( push_constant ) uniform constants
 {
-	int texture_idx;
+	uint diffuse_idx;
+	uint normal_idx;
+	uint specular_idx;
 } PushConstants;
 
-layout (location = 0) out vec3 fragColor;
+layout (location = 0) out vec3 normal;
 layout (location = 1) out vec2 texCoords;
 
 void main()
 {
-    gl_Position = vec4(vPosition, 1.0);
-    fragColor = vNormal;
+    gl_Position =  ubosek.model * vec4(vPosition, 1.0);
     texCoords = vTexCoords;
+    normal = vNormal;
 }

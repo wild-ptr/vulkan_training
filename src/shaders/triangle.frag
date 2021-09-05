@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_sepatrate_shader_objects : enable
 
-layout (location = 0) in vec3 fragColor;
+layout (location = 0) in vec3 vNormal;
 layout (location = 1) in vec2 texCoords;
 
 layout (location = 0) out vec4 outColor;
@@ -15,10 +15,15 @@ layout(binding = 0, set = 1) uniform UboPerObject
     float time;
 } ubosek;
 
+layout( push_constant ) uniform constants
+{
+	uint diffuse_idx;
+	uint normal_idx;
+	uint specular_idx;
+} PushConstants;
+
 void main()
 {
-    //outColor = vec4(fragColor.x * ubosek.time/5, fragColor.yz / ubosek.time , 1.0);
-    vec4 tex = texture(sampler2D(textures[12], samp), texCoords);
-    outColor = vec4(tex.r, tex.gb * ubosek.time/3, tex.a);
-
+    outColor = texture(sampler2D(textures[PushConstants.diffuse_idx], samp), texCoords);
+    //outColor = vec4(vNormal.xyz, 1.0);
 }

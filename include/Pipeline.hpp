@@ -178,19 +178,19 @@ public:
             return cb;
         }();
 
-        VkDynamicState dynamicStates[] = {
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_LINE_WIDTH
-        };
+        //VkDynamicState dynamicStates[] = {
+        //    VK_DYNAMIC_STATE_VIEWPORT,
+        //    VK_DYNAMIC_STATE_LINE_WIDTH
+        //};
 
-        const auto dynamicState = [&dynamicStates] {
-            VkPipelineDynamicStateCreateInfo ds {};
-            ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-            ds.dynamicStateCount = 2;
-            ds.pDynamicStates = dynamicStates;
-
-            return ds;
-        }();
+        //const auto dynamicState = [&dynamicStates] {
+        //    VkPipelineDynamicStateCreateInfo ds {};
+        //    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        //    ds.dynamicStateCount = 2;
+        //    ds.pDynamicStates = dynamicStates;
+        //
+        //    return ds;
+        //}();
 
         const auto depthStencilState = []
         {

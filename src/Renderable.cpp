@@ -88,7 +88,7 @@ void Renderable::cmdBindSetsDrawMeshes(VkCommandBuffer commandBuffer, uint32_t f
 
     for(auto& mesh : meshes)
     {
-        mesh.cmdDraw(commandBuffer);
+        mesh.cmdDraw(commandBuffer, pipeline->getLayoutHandle());
     }
 }
 

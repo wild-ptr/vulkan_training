@@ -9,6 +9,8 @@
 #include <set>
 #include <vector>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "Logger.hpp"
 #include "Mesh.hpp"
 #include "Shader.hpp"
@@ -23,58 +25,58 @@ namespace {
 static constexpr auto maxFramesInFlight = 2u;
 
 // this will be deleted in the future, dw.
-render::Mesh loadTriangleAsMesh(std::shared_ptr<render::VulkanDevice> device)
-{
-    std::vector<render::Vertex> mesh_data;
-    mesh_data.resize(3);
-
-    mesh_data[0].pos = { 1.f, 1.f, 0.0f };
-    mesh_data[1].pos = { -1.f, 1.f, 0.0f };
-    mesh_data[2].pos = { 0.f, -1.f, 0.0f };
-
-    // we will use this as color data for now.
-    mesh_data[0].surf_normals = { 1.f, 0.f, 0.0f };
-    mesh_data[1].surf_normals = { 0.f, 1.f, 0.0f };
-    mesh_data[2].surf_normals = { 0.f, 0.f, 1.0f };
-
-    mesh_data[0].tex_coords = { 0.0f, 0.0f };
-    mesh_data[1].tex_coords = { 0.0f, 1.0f };
-    mesh_data[2].tex_coords = { 1.0f, 1.0f };
-
-    return render::Mesh(mesh_data, std::move(device));
-}
-
-render::Mesh loadTheThing(std::shared_ptr<render::VulkanDevice> device)
-{
-    std::vector<render::Vertex> mesh_data;
-    mesh_data.resize(3);
-
-    mesh_data[0].pos = { 0.f, 0.3f, 0.4f };
-    mesh_data[1].pos = { -1.f, 0.5f, 0.4f };
-    mesh_data[2].pos = { 0.5f, -1.f, 0.4f };
-
-    // we will use this as color data for now.
-    mesh_data[0].surf_normals = { 1.f, 0.f, 1.0f };
-    mesh_data[1].surf_normals = { 0.f, 1.f, 1.0f };
-    mesh_data[2].surf_normals = { 1.f, 0.f, 1.0f };
-
-    mesh_data[0].tex_coords = { 0.0f, 0.0f };
-    mesh_data[1].tex_coords = { 0.0f, 1.0f };
-    mesh_data[2].tex_coords = { 1.0f, 1.0f };
-
-    return render::Mesh(mesh_data, std::move(device));
-}
-
-render::Renderable makeRenderableFromMeshies(
-        std::shared_ptr<render::VulkanDevice> device,
-        std::shared_ptr<render::Pipeline> pipeline)
-{
-    std::vector<render::Mesh> meshes;
-    meshes.emplace_back(loadTriangleAsMesh(device));
-    meshes.emplace_back(loadTheThing(device));
-
-    return render::Renderable(device, pipeline, std::move(meshes));
-}
+//render::Mesh loadTriangleAsMesh(std::shared_ptr<render::VulkanDevice> device)
+//{
+//    std::vector<render::Vertex> mesh_data;
+//    mesh_data.resize(3);
+//
+//    mesh_data[0].pos = { 1.f, 1.f, 0.0f };
+//    mesh_data[1].pos = { -1.f, 1.f, 0.0f };
+//    mesh_data[2].pos = { 0.f, -1.f, 0.0f };
+//
+//    // we will use this as color data for now.
+//    mesh_data[0].surf_normals = { 1.f, 0.f, 0.0f };
+//    mesh_data[1].surf_normals = { 0.f, 1.f, 0.0f };
+//    mesh_data[2].surf_normals = { 0.f, 0.f, 1.0f };
+//
+//    mesh_data[0].tex_coords = { 0.0f, 0.0f };
+//    mesh_data[1].tex_coords = { 0.0f, 1.0f };
+//    mesh_data[2].tex_coords = { 1.0f, 1.0f };
+//
+//    return render::Mesh(mesh_data, std::move(device));
+//}
+//
+//render::Mesh loadTheThing(std::shared_ptr<render::VulkanDevice> device)
+//{
+//    std::vector<render::Vertex> mesh_data;
+//    mesh_data.resize(3);
+//
+//    mesh_data[0].pos = { 0.f, 0.3f, 0.4f };
+//    mesh_data[1].pos = { -1.f, 0.5f, 0.4f };
+//    mesh_data[2].pos = { 0.5f, -1.f, 0.4f };
+//
+//    // we will use this as color data for now.
+//    mesh_data[0].surf_normals = { 1.f, 0.f, 1.0f };
+//    mesh_data[1].surf_normals = { 0.f, 1.f, 1.0f };
+//    mesh_data[2].surf_normals = { 1.f, 0.f, 1.0f };
+//
+//    mesh_data[0].tex_coords = { 0.0f, 0.0f };
+//    mesh_data[1].tex_coords = { 0.0f, 1.0f };
+//    mesh_data[2].tex_coords = { 1.0f, 1.0f };
+//
+//    return render::Mesh(mesh_data, std::move(device));
+//}
+//
+//render::Renderable makeRenderableFromMeshies(
+//        std::shared_ptr<render::VulkanDevice> device,
+//        std::shared_ptr<render::Pipeline> pipeline)
+//{
+//    std::vector<render::Mesh> meshes;
+//    meshes.emplace_back(loadTriangleAsMesh(device));
+//    meshes.emplace_back(loadTheThing(device));
+//
+//    return render::Renderable(device, pipeline, std::move(meshes));
+//}
 
 
 } // anonymous namespace
@@ -199,7 +201,7 @@ void VulkanApplication::recordCommandBuffers()
             throw std::runtime_error("cannot begin command buffer.");
 
         std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+        clearValues[0].color = {0.2f, 0.2f, 0.2f, 1.0f};
         clearValues[1].depthStencil = {1.0f, 0};
 
         const auto renderPassInfo = [i, &clearValues, this] {
@@ -220,7 +222,7 @@ void VulkanApplication::recordCommandBuffers()
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         perFrameData->bind(commandBuffers[i], 0);
-        two_triangles->cmdBindSetsDrawMeshes(commandBuffers[i], 0);
+        to_render_test->cmdBindSetsDrawMeshes(commandBuffers[i], 0);
 
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -266,9 +268,6 @@ void VulkanApplication::initVulkan()
     createSurface();
     vkDevice = std::make_shared<VulkanDevice>(vkInstance.getInstance(), surface);
 
-    triangle = loadTriangleAsMesh(vkDevice);
-    triangle2 = loadTheThing(vkDevice);
-
     vkSwapchain = VulkanSwapchain(*vkDevice, surface, window);
     vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice, vkSwapchain, true);
 
@@ -288,12 +287,13 @@ void VulkanApplication::initVulkan()
     auto framebuf = VulkanFramebuffer(vkDevice, { inf }, 3);
 
     createGraphicsPipeline();
-    two_triangles = std::make_unique<Renderable>(makeRenderableFromMeshies(vkDevice, pipeline));
 
     textureManager = std::make_shared<memory::TextureManager>(vkDevice);
-    textureManager->loadTexture("assets/bricks.jpg");
-
+    assetLoader = std::make_shared<AssetLoader>(vkDevice, textureManager);
     perFrameData = std::make_shared<memory::PerFrameUniformSystem>(vkDevice, textureManager, pipeline);
+
+    to_render_test = assetLoader->loadObject("assets/backpack/backpack.obj", pipeline);
+    perFrameData->refreshData(0);
 
     createCommandPool();
     createCommandBuffers();
@@ -312,8 +312,23 @@ void VulkanApplication::mainLoop()
 
 void VulkanApplication::drawFrame()
 {
-    RenderableUbo ubo = { .times = glfwGetTime() };
-    two_triangles->updateUniforms(ubo, 0);
+
+    auto model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+    model = glm::scale(model, glm::vec3(0.3f));
+    float rads = 0.2 * glfwGetTime();
+    model = glm::rotate(model, rads, glm::vec3{0.0, 1.0, 0.0});
+
+    auto proj = glm::perspective(glm::radians(45.0f), WIDTH / (float) HEIGHT, 0.1f, 10.0f);
+    auto view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    model = proj * view * model;
+
+    RenderableUbo ubo = {
+        .model = model,
+        .times = glfwGetTime(),
+    };
+
+    to_render_test->updateUniforms(ubo, 0);
     // we check whether we can actually start rendering another frame, we want to have
     // a maximum of maxFramesInFlight on queue.
     vkWaitForFences(vkDevice->getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);

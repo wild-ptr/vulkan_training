@@ -145,6 +145,7 @@ void TextureManager::createSampler()
 
 size_t TextureManager::loadTexture(const std::string& path)
 {
+    dbgI << "trying to load texture: " << path << NEWL;
     if(auto it = findInIndexMapSafe(path); it != index_map.end())
     {
         return it->second;
@@ -153,6 +154,7 @@ size_t TextureManager::loadTexture(const std::string& path)
     image_data image{path};
     if(not image.isValid())
     {
+        dbgI << "Invalid image presented." << NEWL;
         return TEXTURES_MAX - 1;
     }
 
@@ -181,6 +183,8 @@ size_t TextureManager::loadTexture(const std::string& path)
     textures[texture_index] = std::move(texture);
     setInIndexMapSafe(path, texture_index);
     generateDescriptorEntry(texture_index);
+
+    dbgI << "Proper texture created." << NEWL;
 
     return texture_index;
 }

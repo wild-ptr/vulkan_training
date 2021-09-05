@@ -27,7 +27,7 @@ INCLUDES = -I include/
 COMPILE_FLAGS = -std=gnu++17 -Wall -Wextra -g -O2 -fopenmp -fuse-ld=gold
 COMPILE_FLAGS_NO_OPTIMIZATION = -std=gnu++17 -Wall -Wextra -g -O0 -fopenmp -fuse-ld=gold
 # Space-separated pkg-config libraries used by this project
-LINKER_FLAGS = -lxcb -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi 
+LINKER_FLAGS = -lxcb -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lassimp
 
 .PHONY: default_target
 default_target: release
