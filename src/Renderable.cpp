@@ -51,6 +51,8 @@ void Renderable::generateUboDescriptorSets()
 
     auto uboBufferInfos = uniforms->getDescriptorBufferInfos();
     // we now need to fill our descriptor sets with proper buffers.
+    assert(uboBufferInfos.size() == descriptorSets.size());
+
     for (size_t i = 0; i < descriptorSets.size(); ++i) {
         VkWriteDescriptorSet wds = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,

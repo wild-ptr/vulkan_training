@@ -40,8 +40,10 @@ size_t calcAlignedTypeSize(size_t alignment)
     {
         return ((wholes * alignment) + alignment);
     }
-
-    return sizeof(T);
+    else
+    {
+        return sizeof(T);
+    }
 }
 
 template <class T, unsigned N = 1>

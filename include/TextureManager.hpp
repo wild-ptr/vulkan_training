@@ -21,6 +21,9 @@ namespace render::memory
 constexpr size_t TEXTURES_MAX = 4096;
 
 // will be used to write to per-frame descriptor set.
+// @TODO: Bring the descriptors and samplerDescriptor into private members as they are not necessary.
+// Make a generic BindingInformation struct along with IPerFrameSystem interface that will be enforced.
+
 struct BindingInformationTextures
 {
     std::vector<VkDescriptorPoolSize> poolSizes;

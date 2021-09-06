@@ -6,15 +6,19 @@ layout (location = 1) in vec3 vNormal;
 layout (location = 2) in vec3 vTangents;
 layout (location = 3) in vec2 vTexCoords;
 
-// test one
 layout(binding = 0, set = 0) uniform texture2D textures[4096];
 layout(binding = 1, set = 0) uniform sampler samp;
+layout(binding = 2, set = 0) uniform UboPerFrame
+{
+    mat4 view;
+    mat4 proj;
+} frameData;
 
 layout(binding = 0, set = 1) uniform UboPerObject
 {
     mat4 model;
     float time;
-} ubosek;
+} objectData;
 
 layout( push_constant ) uniform constants
 {
@@ -28,7 +32,7 @@ layout (location = 1) out vec2 texCoords;
 
 void main()
 {
-    gl_Position =  ubosek.model * vec4(vPosition, 1.0);
+    gl_Position = frameData.proj * frameData.view * objectData.model * vec4(vPosition, 1.0);
     texCoords = vTexCoords;
     normal = vNormal;
 }

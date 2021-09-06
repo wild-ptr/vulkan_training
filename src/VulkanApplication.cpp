@@ -19,67 +19,8 @@
 #include "VulkanApplication.hpp"
 #include "VulkanFramebuffer.hpp"
 #include "Renderable.hpp"
+#include "Constants.hpp"
 
-namespace {
-
-static constexpr auto maxFramesInFlight = 2u;
-
-// this will be deleted in the future, dw.
-//render::Mesh loadTriangleAsMesh(std::shared_ptr<render::VulkanDevice> device)
-//{
-//    std::vector<render::Vertex> mesh_data;
-//    mesh_data.resize(3);
-//
-//    mesh_data[0].pos = { 1.f, 1.f, 0.0f };
-//    mesh_data[1].pos = { -1.f, 1.f, 0.0f };
-//    mesh_data[2].pos = { 0.f, -1.f, 0.0f };
-//
-//    // we will use this as color data for now.
-//    mesh_data[0].surf_normals = { 1.f, 0.f, 0.0f };
-//    mesh_data[1].surf_normals = { 0.f, 1.f, 0.0f };
-//    mesh_data[2].surf_normals = { 0.f, 0.f, 1.0f };
-//
-//    mesh_data[0].tex_coords = { 0.0f, 0.0f };
-//    mesh_data[1].tex_coords = { 0.0f, 1.0f };
-//    mesh_data[2].tex_coords = { 1.0f, 1.0f };
-//
-//    return render::Mesh(mesh_data, std::move(device));
-//}
-//
-//render::Mesh loadTheThing(std::shared_ptr<render::VulkanDevice> device)
-//{
-//    std::vector<render::Vertex> mesh_data;
-//    mesh_data.resize(3);
-//
-//    mesh_data[0].pos = { 0.f, 0.3f, 0.4f };
-//    mesh_data[1].pos = { -1.f, 0.5f, 0.4f };
-//    mesh_data[2].pos = { 0.5f, -1.f, 0.4f };
-//
-//    // we will use this as color data for now.
-//    mesh_data[0].surf_normals = { 1.f, 0.f, 1.0f };
-//    mesh_data[1].surf_normals = { 0.f, 1.f, 1.0f };
-//    mesh_data[2].surf_normals = { 1.f, 0.f, 1.0f };
-//
-//    mesh_data[0].tex_coords = { 0.0f, 0.0f };
-//    mesh_data[1].tex_coords = { 0.0f, 1.0f };
-//    mesh_data[2].tex_coords = { 1.0f, 1.0f };
-//
-//    return render::Mesh(mesh_data, std::move(device));
-//}
-//
-//render::Renderable makeRenderableFromMeshies(
-//        std::shared_ptr<render::VulkanDevice> device,
-//        std::shared_ptr<render::Pipeline> pipeline)
-//{
-//    std::vector<render::Mesh> meshes;
-//    meshes.emplace_back(loadTriangleAsMesh(device));
-//    meshes.emplace_back(loadTheThing(device));
-//
-//    return render::Renderable(device, pipeline, std::move(meshes));
-//}
-
-
-} // anonymous namespace
 
 namespace render {
 
@@ -233,10 +174,10 @@ void VulkanApplication::recordCommandBuffers()
 
 void VulkanApplication::createSyncObjects()
 {
-    imageAvailableSemaphores.resize(maxFramesInFlight);
-    renderFinishedSemaphores.resize(maxFramesInFlight);
+    imageAvailableSemaphores.resize(consts::maxFramesInFlight);
+    renderFinishedSemaphores.resize(consts::maxFramesInFlight);
 
-    inFlightFences.resize(maxFramesInFlight);
+    inFlightFences.resize(consts::maxFramesInFlight);
     imagesInFlight.resize(vkSwapchainFramebuffer.size(), VK_NULL_HANDLE);
 
     VkSemaphoreCreateInfo semaphoreInfo {};
@@ -290,7 +231,8 @@ void VulkanApplication::initVulkan()
 
     textureManager = std::make_shared<memory::TextureManager>(vkDevice);
     assetLoader = std::make_shared<AssetLoader>(vkDevice, textureManager);
-    perFrameData = std::make_shared<memory::PerFrameUniformSystem>(vkDevice, textureManager, pipeline);
+    cameraSystem = std::make_shared<CameraSystem>(window, WIDTH/(float)HEIGHT, 100.0f);
+    perFrameData = std::make_shared<memory::PerFrameUniformSystem>(vkDevice, textureManager, cameraSystem, pipeline);
 
     to_render_test = assetLoader->loadObject("assets/backpack/backpack.obj", pipeline);
     perFrameData->refreshData(0);
@@ -310,11 +252,10 @@ void VulkanApplication::mainLoop()
     }
 }
 
-void VulkanApplication::drawFrame()
+void VulkanApplication::updateUbos(size_t frameIdx)
 {
-
     auto model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-    model = glm::scale(model, glm::vec3(0.3f));
+    model = glm::scale(model, glm::vec3(1.3f));
     float rads = 0.2 * glfwGetTime();
     model = glm::rotate(model, rads, glm::vec3{0.0, 1.0, 0.0});
 
@@ -329,8 +270,14 @@ void VulkanApplication::drawFrame()
     };
 
     to_render_test->updateUniforms(ubo, 0);
+    perFrameData->refreshData(0);
+}
+
+void VulkanApplication::drawFrame()
+{
+    updateUbos(0);
     // we check whether we can actually start rendering another frame, we want to have
-    // a maximum of maxFramesInFlight on queue.
+    // a maximum of consts::maxFramesInFlight on queue.
     vkWaitForFences(vkDevice->getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
@@ -405,7 +352,7 @@ void VulkanApplication::drawFrame()
 
     vkQueuePresentKHR(vkDevice->getPresentationQueue(), &presentInfo);
 
-    currentFrame = (currentFrame + 1) % maxFramesInFlight;
+    currentFrame = (currentFrame + 1) % consts::maxFramesInFlight;
 }
 
 void VulkanApplication::cleanup()
