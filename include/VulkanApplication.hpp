@@ -32,12 +32,14 @@ private:
     void createOffscreenFramebuffer();
     void createCommandPool();
     void createCommandBuffers();
-    void recordCommandBuffers();
+    void recordCommandBuffers(uint32_t swapchainImageIdx, uint32_t frameInFlightIdx);
     void createSyncObjects();
 
     void drawFrame();
 
     void updateUbos(size_t frameIdx);
+    void render();
+    void sendBufferToQueue(uint32_t imageIndex, size_t inFlightFrameNo);
 
     // downright retarded.
     const size_t WIDTH = 1024;
@@ -61,14 +63,58 @@ private:
 
     std::shared_ptr<Renderable> to_render_test;
 
+    // @TODO: change amount of commandBuffers to consts::maxFramesInFlight
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-    std::vector<VkFence> imagesInFlight;
 
-    size_t currentFrame { 0 };
+    // move to its own class later?
+    struct FrameSyncData
+    {
+        size_t currentFrame { 0 };
+        std::array<VkSemaphore, consts::maxFramesInFlight> imageAvailableSem;
+        std::array<VkSemaphore, consts::maxFramesInFlight> renderFinishedSem;
+        std::array<VkFence, consts::maxFramesInFlight> inFlightFences;
+        std::vector<VkFence> imagesInFlight;
+        std::shared_ptr<VulkanDevice> device;
+
+        FrameSyncData(std::shared_ptr<VulkanDevice> device_ptr, size_t swapchainImageCnt)
+            : imagesInFlight(swapchainImageCnt)
+            , device(std::move(device_ptr))
+        {
+            VkSemaphoreCreateInfo semaphoreInfo =
+            {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            };
+
+            VkFenceCreateInfo fenceInfo =
+            {
+                .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+            };
+
+            for(size_t i = 0; i < consts::maxFramesInFlight; ++i)
+            {
+                vkCreateSemaphore(device->getDevice(), &semaphoreInfo, nullptr, &imageAvailableSem[i]);
+                vkCreateSemaphore(device->getDevice(), &semaphoreInfo, nullptr, &renderFinishedSem[i]);
+                vkCreateFence(device->getDevice(), &fenceInfo, nullptr, &inFlightFences[i]);
+            }
+        }
+
+        void advanceFrame()
+        {
+            ++currentFrame;
+
+            if (currentFrame % consts::maxFramesInFlight == 0)
+            {
+                currentFrame = 0;
+            }
+        }
+
+        size_t getFrameIndex() { return currentFrame; }
+
+    };
+
+    std::shared_ptr<FrameSyncData> frameSyncData;
 };
 
 } // namespace vk_main

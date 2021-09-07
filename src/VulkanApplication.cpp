@@ -126,9 +126,11 @@ void VulkanApplication::createCommandBuffers()
 // So this part will need to be a part of main render engine,
 // as it has to deal with a loop across all Renderables which will contain all meshes
 // and we need to invoke a draw call on every one of those, rebinding vertex buffer offsets
-void VulkanApplication::recordCommandBuffers()
+void VulkanApplication::recordCommandBuffers(uint32_t swapchainImgIdx, uint32_t frameInFlightIdx)
 {
-    for (size_t i = 0; i < commandBuffers.size(); ++i) {
+        // care must be taken not to reset pending buffers!
+        vkResetCommandBuffer(commandBuffers[frameInFlightIdx], 0);
+
         const auto beginInfo = [] {
             VkCommandBufferBeginInfo cbi {};
             cbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -138,18 +140,18 @@ void VulkanApplication::recordCommandBuffers()
             return cbi;
         }();
 
-        if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
+        if (vkBeginCommandBuffer(commandBuffers[frameInFlightIdx], &beginInfo) != VK_SUCCESS)
             throw std::runtime_error("cannot begin command buffer.");
 
         std::array<VkClearValue, 2> clearValues{};
         clearValues[0].color = {0.2f, 0.2f, 0.2f, 1.0f};
         clearValues[1].depthStencil = {1.0f, 0};
 
-        const auto renderPassInfo = [i, &clearValues, this] {
+        const auto renderPassInfo = [swapchainImgIdx, &clearValues, this] {
             VkRenderPassBeginInfo rbi {};
             rbi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
             rbi.renderPass = vkSwapchainFramebuffer.getRenderPass();
-            rbi.framebuffer = vkSwapchainFramebuffer[i];
+            rbi.framebuffer = vkSwapchainFramebuffer[swapchainImgIdx];
 
             rbi.renderArea.offset = { 0, 0 };
             rbi.renderArea.extent = vkSwapchain.getSwapchainExtent();
@@ -160,41 +162,16 @@ void VulkanApplication::recordCommandBuffers()
             return rbi;
         }();
 
-        vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        auto cmd = commandBuffers[frameInFlightIdx];
+        vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        perFrameData->bind(commandBuffers[i], 0);
-        to_render_test->cmdBindSetsDrawMeshes(commandBuffers[i], 0);
+        perFrameData->bind(cmd, frameInFlightIdx);
+        to_render_test->cmdBindSetsDrawMeshes(cmd, frameInFlightIdx);
 
-        vkCmdEndRenderPass(commandBuffers[i]);
+        vkCmdEndRenderPass(cmd);
 
-        if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
+        if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
             throw std::runtime_error("failed to record command buffer.");
-    }
-}
-
-void VulkanApplication::createSyncObjects()
-{
-    imageAvailableSemaphores.resize(consts::maxFramesInFlight);
-    renderFinishedSemaphores.resize(consts::maxFramesInFlight);
-
-    inFlightFences.resize(consts::maxFramesInFlight);
-    imagesInFlight.resize(vkSwapchainFramebuffer.size(), VK_NULL_HANDLE);
-
-    VkSemaphoreCreateInfo semaphoreInfo {};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fenceInfo {};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    for (size_t i = 0; i < imageAvailableSemaphores.size(); ++i) {
-        if (vkCreateSemaphore(vkDevice->getDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i])
-                != VK_SUCCESS
-            or vkCreateSemaphore(vkDevice->getDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i])
-                != VK_SUCCESS
-            or vkCreateFence(vkDevice->getDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
-            throw std::runtime_error("failed to create semaphores!");
-    }
 }
 
 void VulkanApplication::initVulkan()
@@ -233,23 +210,113 @@ void VulkanApplication::initVulkan()
     assetLoader = std::make_shared<AssetLoader>(vkDevice, textureManager);
     cameraSystem = std::make_shared<CameraSystem>(window, WIDTH/(float)HEIGHT, 100.0f);
     perFrameData = std::make_shared<memory::PerFrameUniformSystem>(vkDevice, textureManager, cameraSystem, pipeline);
+    frameSyncData = std::make_shared<VulkanApplication::FrameSyncData>(vkDevice, vkSwapchain.size());
 
+    // to remove
     to_render_test = assetLoader->loadObject("assets/backpack/backpack.obj", pipeline);
     perFrameData->refreshData(0);
 
     createCommandPool();
     createCommandBuffers();
-    recordCommandBuffers();
-
-    createSyncObjects();
 }
 
 void VulkanApplication::mainLoop()
 {
     while (not glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        drawFrame();
+        render();
     }
+}
+
+void VulkanApplication::render()
+{
+    size_t inFlightFrameNo = frameSyncData->getFrameIndex();
+
+    dbgI << "current inflight frame: " << inFlightFrameNo << NEWL;
+    dbgI << "waiting on fence" << NEWL;
+    // we need to wait if all frames inflight are used right now.
+    vkWaitForFences(vkDevice->getDevice(), 1, &frameSyncData->inFlightFences[inFlightFrameNo], VK_TRUE, UINT64_MAX);
+
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR(vkDevice->getDevice(),
+        vkSwapchain.getSwapchain(),
+        UINT64_MAX, // timeout in ns, uint64_max disables timeout.
+        frameSyncData->imageAvailableSem[inFlightFrameNo],
+        VK_NULL_HANDLE, //fence, if applicable.
+        &imageIndex);
+
+    dbgI << "current imgIdx: " << imageIndex << NEWL;
+    dbgI << "recording commandBuffers, since it should not be used now." << NEWL;
+
+    recordCommandBuffers(imageIndex, inFlightFrameNo);
+
+    dbgI << "Updating UBO's..." << NEWL;
+    updateUbos(inFlightFrameNo);
+
+    dbgI << "sending to queue!" << NEWL;
+    sendBufferToQueue(imageIndex, inFlightFrameNo);
+
+    frameSyncData->advanceFrame();
+    dbgI << "Frame advancement." << NEWL;
+}
+
+void VulkanApplication::sendBufferToQueue(uint32_t imageIndex, size_t currentFrame)
+{
+    if (frameSyncData->imagesInFlight[imageIndex] != VK_NULL_HANDLE)
+    {
+        vkWaitForFences(vkDevice->getDevice(), 1, &frameSyncData->imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+    }
+
+    frameSyncData->imagesInFlight[imageIndex] = frameSyncData->inFlightFences[currentFrame];
+
+    // The inFlightFences[currentFrame] is lit now.
+    // So is imagesInFlight[imageIndex], as they are one and the same fence.
+
+    VkSemaphore waitSemaphores[] = { frameSyncData->imageAvailableSem[currentFrame] };
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+    VkSemaphore signalSemaphores[] = { frameSyncData->renderFinishedSem[currentFrame] };
+
+    const auto submitInfo = [&waitSemaphores, &waitStages, &signalSemaphores, currentFrame, this] {
+        VkSubmitInfo submitInfo {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+
+        // those semaphores will be lit when command buffer execution finishes.
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
+
+        return submitInfo;
+    }();
+
+    // Reset operation makes fence block! Not the other way around.
+    vkResetFences(vkDevice->getDevice(), 1, &frameSyncData->inFlightFences[currentFrame]);
+
+    // dont we have a race condition right there? Yes but this is not multithreaded. (yet!)
+    VK_CHECK(vkQueueSubmit(vkDevice->getGraphicsQueue(), 1, &submitInfo, frameSyncData->inFlightFences[currentFrame]));
+
+    VkSwapchainKHR swapchains[] = { vkSwapchain.getSwapchain() };
+
+    const auto presentInfo = [&signalSemaphores, &swapchains, &imageIndex, this] {
+        VkPresentInfoKHR pi {};
+        pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+        pi.waitSemaphoreCount = 1;
+        pi.pWaitSemaphores = signalSemaphores;
+
+        pi.swapchainCount = 1;
+        pi.pSwapchains = swapchains;
+        pi.pImageIndices = &imageIndex;
+
+        return pi;
+    }();
+
+    vkQueuePresentKHR(vkDevice->getPresentationQueue(), &presentInfo);
 }
 
 void VulkanApplication::updateUbos(size_t frameIdx)
@@ -269,99 +336,13 @@ void VulkanApplication::updateUbos(size_t frameIdx)
         .times = glfwGetTime(),
     };
 
-    to_render_test->updateUniforms(ubo, 0);
-    perFrameData->refreshData(0);
+    to_render_test->updateUniforms(ubo, frameIdx);
+    perFrameData->refreshData(frameIdx);
 }
 
-void VulkanApplication::drawFrame()
-{
-    updateUbos(0);
-    // we check whether we can actually start rendering another frame, we want to have
-    // a maximum of consts::maxFramesInFlight on queue.
-    vkWaitForFences(vkDevice->getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-
-    uint32_t imageIndex;
-    vkAcquireNextImageKHR(vkDevice->getDevice(),
-        vkSwapchain.getSwapchain(),
-        UINT64_MAX, // timeout in ns, uint64_max disables timeout.
-        imageAvailableSemaphores[currentFrame],
-        VK_NULL_HANDLE, //fence, if applicable.
-        &imageIndex);
-
-    // The first fence is not enough of a synchronization point, as the vkAcquireNextImageKHR
-    // can actually give us frames out-of-order, or we can have less images in swapchain
-    // than our maximum frames in flight setting. Therefore we also have to check if given
-    // swapchain image is not used by another frame, and if so, we have to stall.
-    if (imagesInFlight[imageIndex] != VK_NULL_HANDLE)
-        vkWaitForFences(vkDevice->getDevice(), 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-
-    imagesInFlight[imageIndex] = inFlightFences[currentFrame];
-
-    // The inFlightFences[currentFrame] is lit now.
-    // So is imagesInFlight[imageIndex], as they are one and the same fence.
-
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
-
-    const auto submitInfo = [&waitSemaphores, &waitStages, &signalSemaphores, imageIndex, this] {
-        VkSubmitInfo submitInfo {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-        // This tells us to wait on semaphore, and on what stages we want to wait for which semaphores.
-        // waitStages and waitSemaphores indices are linked, so here we will wait on ImageAvailable
-        // with pipeline stage that outputs to color attachment.
-        // Vertex stage can proceed even before we get an image to draw on in this case.
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        submitInfo.pWaitDstStageMask = waitStages;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
-
-        // those semaphores will be lit when command buffer execution finishes.
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
-
-        return submitInfo;
-    }();
-
-    // Reset operation makes fence block! Not the other way around.
-    vkResetFences(vkDevice->getDevice(), 1, &inFlightFences[currentFrame]);
-
-    // dont we have a race condition right there? Yes but this is not multithreaded. (yet!)
-    if (vkQueueSubmit(vkDevice->getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame])
-        != VK_SUCCESS)
-        throw std::runtime_error("Cannot submit to queue");
-
-    VkSwapchainKHR swapchains[] = { vkSwapchain.getSwapchain() };
-
-    const auto presentInfo = [&signalSemaphores, &swapchains, &imageIndex, this] {
-        VkPresentInfoKHR pi {};
-        pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-        pi.waitSemaphoreCount = 1;
-        pi.pWaitSemaphores = signalSemaphores;
-
-        pi.swapchainCount = 1;
-        pi.pSwapchains = swapchains;
-        pi.pImageIndices = &imageIndex;
-
-        return pi;
-    }();
-
-    vkQueuePresentKHR(vkDevice->getPresentationQueue(), &presentInfo);
-
-    currentFrame = (currentFrame + 1) % consts::maxFramesInFlight;
-}
 
 void VulkanApplication::cleanup()
 {
-    for (size_t i = 0; i < imageAvailableSemaphores.size(); ++i) {
-        vkDestroySemaphore(vkDevice->getDevice(), imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(vkDevice->getDevice(), renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(vkDevice->getDevice(), inFlightFences[i], nullptr);
-    }
 
     vkDestroyCommandPool(vkDevice->getDevice(), commandPool, nullptr);
 

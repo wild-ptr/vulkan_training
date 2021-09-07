@@ -100,7 +100,7 @@ void createSwapChainAndImageFormatExtent(
     extent_out = chooseSwapExtent(swapChainSupport.capabilities, window);
     swapChainImageFormat_out = surfaceFormat.format;
 
-    uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+    uint32_t imageCount = swapChainSupport.capabilities.minImageCount;
 
     if (swapChainSupport.capabilities.maxImageCount > 0 and imageCount > swapChainSupport.capabilities.maxImageCount)
         imageCount = swapChainSupport.capabilities.maxImageCount;
