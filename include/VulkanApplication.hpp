@@ -42,8 +42,8 @@ private:
     void sendBufferToQueue(uint32_t imageIndex, size_t inFlightFrameNo);
 
     // downright retarded.
-    const size_t WIDTH = 1024;
-    const size_t HEIGHT = 768;
+    const size_t WIDTH = 1500;
+    const size_t HEIGHT = 1000;
 
     GLFWwindow* window;
     VkSurfaceKHR surface;
@@ -103,7 +103,6 @@ private:
         void advanceFrame()
         {
             ++currentFrame;
-
             if (currentFrame % consts::maxFramesInFlight == 0)
             {
                 currentFrame = 0;

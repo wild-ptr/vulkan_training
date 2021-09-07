@@ -9,7 +9,7 @@ namespace render
 CameraSystem::CameraSystem(GLFWwindow* window, float aspectRatio, float fov)
     : window(window)
 {
-    cam.cam_speed = 0.5f;
+    cam.cam_speed = 0.05f;
     cam.sensitivity = 0.5f;
     cam.pos_v.z = 5.0f; // (0,0,5) position
     cam.dir_v.z = -1.0f; // (0,0,-1) direction (opposite of where its looking)
@@ -35,7 +35,8 @@ void CameraSystem::mouseMovementCallback(GLFWwindow*, double xpos, double ypos)
         first_mouse_input = true;
     }
 
-    float xoffset = xpos - cam.last_x;
+    //float xoffset = xpos - cam.last_x;
+    float xoffset = cam.last_x - xpos;
     float yoffset = cam.last_y - ypos;
     cam.last_x = xpos;
     cam.last_y = ypos;
@@ -75,17 +76,54 @@ CameraSystem::UboData CameraSystem::genCurrentVPMatrices()
         .proj = proj_matrix
     };
 
-    dbgI << "View matrix: " << NEWL;
-    for(int i = 0; i < 4; ++i)
-    {
-        for(int j = 0; j < 4; j++)
-        {
-            std::cout << data.view[i][j] << "  ";
-        }
-        std::cout << NEWL;
-    }
-
     return data;
+}
+
+// This will someday go into some keybind class. Not today!
+// A dirty hack for now.
+void CameraSystem::processKeyboardMovement()
+{
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        moveCamera(CameraDir::FORWARD);
+
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        moveCamera(CameraDir::BACKWARD);
+
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        moveCamera(CameraDir::LEFT);
+
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        moveCamera(CameraDir::RIGHT);
+}
+
+void CameraSystem::moveCamera(CameraDir dir)
+{
+    std::unique_lock lock(cam_mutex);
+    glm::vec3 scaled = {0.0f, 0.0f, 0.0f};
+
+    switch(dir)
+    {
+        case CameraDir::FORWARD:
+            scaled = cam.dir_v * cam.cam_speed;
+            cam.pos_v = cam.pos_v + scaled;
+            break;
+        case CameraDir::BACKWARD:
+            scaled = cam.dir_v * cam.cam_speed;
+            cam.pos_v = cam.pos_v - scaled;
+            break;
+        case CameraDir::LEFT:
+            scaled = glm::cross(cam.dir_v, cam.up_v);
+            scaled = glm::normalize(scaled);
+            scaled *= cam.cam_speed;
+            cam.pos_v += scaled;
+            break;
+        case CameraDir::RIGHT:
+            scaled = glm::cross(cam.dir_v, cam.up_v);
+            scaled = glm::normalize(scaled);
+            scaled *= cam.cam_speed;
+            cam.pos_v -= scaled;
+            break;
+    }
 }
 
 } // namespace render

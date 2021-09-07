@@ -185,36 +185,17 @@ void VulkanApplication::initVulkan()
     vkInstance = VkInstance(enableValidationLayers);
     createSurface();
     vkDevice = std::make_shared<VulkanDevice>(vkInstance.getInstance(), surface);
-
     vkSwapchain = VulkanSwapchain(*vkDevice, surface, window);
     vkSwapchainFramebuffer = VulkanFramebuffer(vkDevice, vkSwapchain, true);
-
-    FramebufferAttachmentInfo inf = {
-        .ci = {
-            .width = 800,
-            .height = 600,
-            .layerCount = 1,
-            .mipLevels = 1,
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
-            .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT },
-
-        .type = EFramebufferAttachmentType::ATTACHMENT_COLOR
-    };
-
-    // just to test new framebuffer module.
-    auto framebuf = VulkanFramebuffer(vkDevice, { inf }, 3);
-
     createGraphicsPipeline();
-
     textureManager = std::make_shared<memory::TextureManager>(vkDevice);
     assetLoader = std::make_shared<AssetLoader>(vkDevice, textureManager);
-    cameraSystem = std::make_shared<CameraSystem>(window, WIDTH/(float)HEIGHT, 100.0f);
+    cameraSystem = std::make_shared<CameraSystem>(window, (float)WIDTH/(float)HEIGHT, 30.0f);
     perFrameData = std::make_shared<memory::PerFrameUniformSystem>(vkDevice, textureManager, cameraSystem, pipeline);
     frameSyncData = std::make_shared<VulkanApplication::FrameSyncData>(vkDevice, vkSwapchain.size());
 
-    // to remove
+    // to remove later on
     to_render_test = assetLoader->loadObject("assets/backpack/backpack.obj", pipeline);
-    perFrameData->refreshData(0);
 
     createCommandPool();
     createCommandBuffers();
@@ -230,10 +211,9 @@ void VulkanApplication::mainLoop()
 
 void VulkanApplication::render()
 {
+    cameraSystem->processKeyboardMovement();
     size_t inFlightFrameNo = frameSyncData->getFrameIndex();
 
-    dbgI << "current inflight frame: " << inFlightFrameNo << NEWL;
-    dbgI << "waiting on fence" << NEWL;
     // we need to wait if all frames inflight are used right now.
     vkWaitForFences(vkDevice->getDevice(), 1, &frameSyncData->inFlightFences[inFlightFrameNo], VK_TRUE, UINT64_MAX);
 
@@ -245,19 +225,11 @@ void VulkanApplication::render()
         VK_NULL_HANDLE, //fence, if applicable.
         &imageIndex);
 
-    dbgI << "current imgIdx: " << imageIndex << NEWL;
-    dbgI << "recording commandBuffers, since it should not be used now." << NEWL;
-
     recordCommandBuffers(imageIndex, inFlightFrameNo);
-
-    dbgI << "Updating UBO's..." << NEWL;
     updateUbos(inFlightFrameNo);
-
-    dbgI << "sending to queue!" << NEWL;
     sendBufferToQueue(imageIndex, inFlightFrameNo);
 
     frameSyncData->advanceFrame();
-    dbgI << "Frame advancement." << NEWL;
 }
 
 void VulkanApplication::sendBufferToQueue(uint32_t imageIndex, size_t currentFrame)
@@ -325,11 +297,6 @@ void VulkanApplication::updateUbos(size_t frameIdx)
     model = glm::scale(model, glm::vec3(1.3f));
     float rads = 0.2 * glfwGetTime();
     model = glm::rotate(model, rads, glm::vec3{0.0, 1.0, 0.0});
-
-    auto proj = glm::perspective(glm::radians(45.0f), WIDTH / (float) HEIGHT, 0.1f, 10.0f);
-    auto view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    model = proj * view * model;
 
     RenderableUbo ubo = {
         .model = model,

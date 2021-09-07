@@ -23,11 +23,23 @@ public:
     static void mouseMovementCallback(GLFWwindow*, double xpos, double ypos);
     UboData genCurrentVPMatrices();
 
+    // I dont have any keyboard processing class for now so... lets just throw it into camera.
+    void processKeyboardMovement();
+
 private:
+    enum class CameraDir
+    {
+        FORWARD,
+        BACKWARD,
+        LEFT,
+        RIGHT
+    };
+
+    void moveCamera(CameraDir);
+
     // since camera callbacks can happen all the time in async, we need to properly lock the
     // state of camera in place while generating VP matrices to avoid torn reads.
     inline static std::shared_mutex cam_mutex {};
-
     inline static struct Camera
     {
         glm::vec3 pos_v;
