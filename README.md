@@ -1,6 +1,5 @@
 # vulkan_training
-This is my vulkan learning experience. Not much is on the screen at the moment because i decided on bottom-up approach.
-So, first i want to do some work on fundamentals before I do the fun stuff (aka viewing something more than two triangles, and doing proper shading).
+This is my vulkan learning experience. Right now we have asset importing, some phong shading and working camera.
 
 The build system is non-existent and works on a single Makefile because well... i hate build systems and im too lazy to use CMake for my personal fun project.
 
