@@ -3,8 +3,6 @@ This is my vulkan learning experience. Right now we have asset importing, some p
 
 The build system is non-existent and works on a single Makefile because well... i hate build systems and im too lazy to use CMake for my personal fun project.
 
-Soo, around 4K of my own LOC to view two triangles. But other features should progress much faster now :D
-
 Features right now:
  - Full vulkan bootstraping
  - Higher level abstractions for vulkan objects and methods (framebuffer creation, etc)
@@ -16,7 +14,6 @@ Features right now:
    data changing per-object. Facilities for pushing set0 are not implemented yet, as i have not implemented
    camera and by extension view and projection matrices cals.
  - Vertex abstractions.
-  
   
 Planned features:
  - Adding support for textures in bindless mode, to have another tier of uniforms with per-mesh rebind frequency.
